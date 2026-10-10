@@ -465,7 +465,7 @@ let subtitlesEnabled = true;
 
 async function loadMovies() {
   try {
-    const res = await fetch('datamov.json');
+    const res = await fetch('https://raw.githubusercontent.com/ezidicoding/ezimovies.com/refs/heads/main/datamov.json');
     if (!res.ok) throw new Error('فشل تحميل الملف');
     movies = await res.json();
     renderList();
