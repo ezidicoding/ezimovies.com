@@ -1,0 +1,38 @@
+[
+  {
+    "title": "Big Buck Bunny",
+    "titleAr": "الأرنب الكبير",
+    "year": 2008,
+    "desc": "قصة أرنب عملاق طيب القلب يتعرض لمضايقات من ثلاثة قوارض، فيقرر الانتقام بطريقة كوميدية. فيلم مفتوح المصدر من Blender Foundation.",
+    "poster": "https://upload.wikimedia.org/wikipedia/commons/c/c5/Big_buck_bunny_poster_big.jpg",
+    "src": "https://uploads.video-commander.com/sample/BigBuckBunny.mp4",
+    "srt": "https://raw.githubusercontent.com/videojs/video.js/main/docs/examples/shared/example-captions.vtt"
+  },
+  {
+    "title": "Sintel",
+    "titleAr": "سينتل",
+    "year": 2010,
+    "desc": "فتاة شابة تبحث عن تنينها المفقود في عالم خيالي مليء بالمغامرات والمشاعر. فيلم مفتوح المصدر ملحمي من Blender.",
+    "poster": "https://upload.wikimedia.org/wikipedia/commons/8/8f/Sintel_poster.jpg",
+    "src": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+    "srt": ""
+  },
+  {
+    "title": "Elephants Dream",
+    "titleAr": "حلم الفيلة",
+    "year": 2006,
+    "desc": "أول فيلم مفتوح المصدر من Blender. قصة خيالية علمية عن شخصيتين في عالم غريب.",
+    "poster": "https://upload.wikimedia.org/wikipedia/commons/f/f3/Elephants_Dream_s3_both.jpg",
+    "src": "https://www.w3schools.com/html/mov_bbb.mp4",
+    "srt": ""
+  },
+  {
+    "title": "Tears of Steel",
+    "titleAr": "دموع الفولاذ",
+    "year": 2012,
+    "desc": "فيلم خيال علمي يجمع بين التصوير الحي والمؤثرات البصرية المتقدمة. قصة عن مجموعة تحاول إنقاذ العالم.",
+    "poster": "https://upload.wikimedia.org/wikipedia/commons/c/c5/Big_buck_bunny_poster_big.jpg",
+    "src": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+    "srt": ""
+  }
+]

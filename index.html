@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>مشغل الأفلام المتطور - Cinema Player</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0c;
+  --glass: rgba(18, 18, 22, 0.75);
+  --glass-strong: rgba(12, 12, 16, 0.92);
+  --accent: #e50914;
+  --accent-soft: rgba(229, 9, 20, 0.2);
+  --text: #ffffff;
+  --text-muted: #b0b0b0;
+  --border: rgba(255,255,255,0.12);
+  --radius: 14px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Cairo', system-ui, sans-serif;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+.player-shell {
+  position: relative;
+  width: 100%;
+  height: 100dvh;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+}
+.video-wrap {
+  flex: 1;
+  position: relative;
+  width: 100%;
+  background: #000;
+  overflow: hidden;
+}
+video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+.ambient-bg {
+  position: absolute;
+  inset: -40px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(50px) brightness(0.35) saturate(1.2);
+  z-index: 0;
+  opacity: 0.7;
+  pointer-events: none;
+  transition: background-image 0.6s ease;
+}
+/* Big Play */
+.center-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 88px;
+  height: 88px;
+  background: rgba(229,9,20,0.92);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: transform 0.2s, opacity 0.3s;
+  backdrop-filter: blur(8px);
+  border: 3px solid rgba(255,255,255,0.3);
+}
+.center-play:hover, .center-play:active { transform: translate(-50%, -50%) scale(1.08); }
+.center-play.hidden { opacity: 0; pointer-events: none; }
+.center-play svg { width: 42px; height: 42px; fill: #fff; margin-left: 4px; }
+
+/* Top Bar */
+.top-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 20px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
+  z-index: 20;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.player-shell:hover .top-bar,
+.player-shell.show-ui .top-bar { opacity: 1; }
+.movie-title-top {
+  font-size: 1.15rem;
+  font-weight: 700;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+}
+.top-actions { display: flex; gap: 8px; }
+
+/* Controls Overlay */
+.controls-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 12px 16px calc(16px + var(--safe-bottom));
+  background: linear-gradient(transparent, rgba(0,0,0,0.85) 40%);
+  z-index: 20;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.player-shell:hover .controls-overlay,
+.player-shell.show-ui .controls-overlay { opacity: 1; }
+
+.progress-wrap {
+  height: 5px;
+  background: rgba(255,255,255,0.25);
+  border-radius: 3px;
+  cursor: pointer;
+  position: relative;
+  margin-bottom: 14px;
+  touch-action: none;
+  direction: ltr; /* يجبر الخط الأحمر يبدأ من اليسار دائمًا */
+}
+.progress-wrap:hover, .progress-wrap.dragging { height: 8px; }
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  width: 0%;
+  position: relative;
+  float: left; /* يبدأ من اليسار */
+}
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  left: 100%; /* الدائرة في نهاية الخط من اليمين (بعد الملء) */
+  right: auto;
+  top: 50%;
+  transform: translateY(-50%) translateX(-50%);
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.progress-wrap:hover .progress-fill::after,
+.progress-wrap.dragging .progress-fill::after { opacity: 1; }
+.time-tip {
+  position: absolute;
+  bottom: 18px;
+  background: rgba(0,0,0,0.85);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  display: none;
+  pointer-events: none;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.controls-group { display: flex; align-items: center; gap: 4px; }
+.ctrl {
+  background: transparent;
+  border: none;
+  color: #fff;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.ctrl:hover, .ctrl:active { background: rgba(255,255,255,0.15); }
+.ctrl svg { width: 24px; height: 24px; fill: currentColor; }
+.time-text {
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  min-width: 95px;
+  text-align: center;
+}
+.volume-box {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.volume-slider {
+  width: 70px;
+  height: 4px;
+  -webkit-appearance: none;
+  background: rgba(255,255,255,0.3);
+  border-radius: 2px;
+  outline: none;
+}
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+/* Playlist Panel (inside player) */
+.playlist-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(380px, 92vw);
+  background: var(--glass-strong);
+  backdrop-filter: blur(20px);
+  border-left: 1px solid var(--border);
+  z-index: 30;
+  transform: translateX(100%);
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.playlist-panel.open { transform: translateX(0); }
+.panel-header {
+  padding: 18px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.panel-header h3 { font-size: 1.1rem; }
+.search-input {
+  width: calc(100% - 24px);
+  margin: 8px 12px 6px;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.85rem;
+  outline: none;
+  height: 36px;
+}
+.search-input:focus { border-color: var(--accent); }
+.movies-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+.movies-scroll::-webkit-scrollbar { width: 5px; }
+.movies-scroll::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+.movie-item {
+  display: flex;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  margin-bottom: 6px;
+  border: 1px solid transparent;
+  transition: background 0.2s;
+}
+.movie-item:hover { background: rgba(255,255,255,0.06); }
+.movie-item.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.movie-item img {
+  width: 68px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #222;
+  flex-shrink: 0;
+}
+.movie-item-info h4 { font-size: 0.98rem; margin-bottom: 4px; }
+.movie-item-info .meta { font-size: 0.78rem; color: var(--text-muted); }
+
+/* Details overlay */
+.details-overlay {
+  position: absolute;
+  top: 70px;
+  left: 20px;
+  max-width: 380px;
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  z-index: 15;
+  opacity: 0;
+  transition: opacity 0.4s;
+  pointer-events: none;
+}
+.player-shell:hover .details-overlay,
+.player-shell.show-ui .details-overlay { opacity: 1; }
+.details-overlay h2 { font-size: 1.3rem; margin-bottom: 4px; }
+.details-overlay .year { color: var(--accent); font-weight: 700; }
+.details-overlay p { font-size: 0.88rem; color: var(--text-muted); margin-top: 8px; line-height: 1.5; }
+
+/* Loader & Error */
+.loader {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(255,255,255,0.15);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  z-index: 25;
+  display: none;
+}
+@keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+.error-box {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.85);
+  padding: 24px;
+  border-radius: 12px;
+  text-align: center;
+  z-index: 25;
+  display: none;
+  max-width: 80%;
+}
+
+/* Mobile / Tablet optimizations */
+@media (max-width: 768px) {
+  .center-play { width: 72px; height: 72px; }
+  .center-play svg { width: 34px; height: 34px; }
+  .ctrl { width: 40px; height: 40px; }
+  .time-text { font-size: 0.78rem; min-width: 80px; }
+  .volume-slider { width: 50px; }
+  .details-overlay { display: none; }
+  .playlist-panel { width: 100%; }
+  .movie-title-top { font-size: 1rem; }
+}
+@media (max-width: 480px) {
+  .controls-bar { flex-wrap: wrap; }
+  .volume-box { display: none; } /* hide volume slider on very small screens, use mute only */
+  .time-text { order: 1; }
+}
+</style>
+</head>
+<body>
+<div class="player-shell" id="playerShell">
+  <div class="video-wrap">
+    <div class="ambient-bg" id="ambient"></div>
+    <video id="video" playsinline webkit-playsinline></video>
+
+    <div class="center-play" id="centerPlay">
+      <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+    </div>
+
+    <div class="loader" id="loader"></div>
+    <div class="error-box" id="errorBox">تعذر تحميل الفيديو. جرب فيلمًا آخر.</div>
+
+    <!-- Top Bar -->
+    <div class="top-bar">
+      <div class="movie-title-top" id="topTitle">جاري التحميل...</div>
+      <div class="top-actions">
+        <button class="ctrl" id="playlistBtn" title="قائمة الأفلام">
+          <svg viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Details -->
+    <div class="details-overlay" id="details">
+      <h2 id="detailTitle"></h2>
+      <div class="year" id="detailYear"></div>
+      <p id="detailDesc"></p>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls-overlay" id="controls">
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-fill" id="progressFill"></div>
+        <div class="time-tip" id="timeTip"></div>
+      </div>
+      <div class="controls-bar">
+        <div class="controls-group">
+          <button class="ctrl" id="prevBtn" title="السابق">
+            <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+          </button>
+          <button class="ctrl" id="playPauseBtn">
+            <svg id="playIco" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <svg id="pauseIco" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+          </button>
+          <button class="ctrl" id="nextBtn" title="التالي">
+            <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+          </button>
+          <div class="time-text" id="timeText">0:00 / 0:00</div>
+        </div>
+        <div class="controls-group">
+          <div class="volume-box">
+            <button class="ctrl" id="muteBtn">
+              <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+            </button>
+            <input type="range" class="volume-slider" id="volSlider" min="0" max="1" step="0.05" value="1">
+          </div>
+          <select class="ctrl" id="speedSel" style="width:auto;padding:0 8px;border-radius:8px;font-size:0.8rem;height:36px;">
+            <option value="0.5">0.5x</option>
+            <option value="0.75">0.75x</option>
+            <option value="1" selected>1x</option>
+            <option value="1.25">1.25x</option>
+            <option value="1.5">1.5x</option>
+            <option value="2">2x</option>
+          </select>
+          <button class="ctrl" id="ccBtn" title="ترجمة (CC)">
+            <svg viewBox="0 0 24 24"><path d="M19 4H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H5V6h14v12zM7 15h3v-2H7v2zm0-4h10v-2H7v2zm5 4h5v-2h-5v2z"/></svg>
+          </button>
+          <button class="ctrl" id="pipBtn" title="صورة داخل صورة">
+            <svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H3V5h18v14z"/></svg>
+          </button>
+          <button class="ctrl" id="fsBtn" title="ملء الشاشة">
+            <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Playlist Panel -->
+  <div class="playlist-panel" id="playlistPanel">
+    <div class="panel-header">
+      <h3>🎬 قائمة الأفلام</h3>
+      <button class="ctrl" id="closePanel">✕</button>
+    </div>
+    <input type="text" class="search-input" id="search" placeholder="ابحث عن فيلم...">
+    <div class="movies-scroll" id="moviesList"></div>
+  </div>
+</div>
+
+<script>
+let movies = [];
+let currentIndex = 0;
+let isPlaying = false;
+let hideTimeout;
+let isDragging = false;
+let subtitlesEnabled = true;
+
+async function loadMovies() {
+  try {
+    const res = await fetch('datamov.json');
+    if (!res.ok) throw new Error('فشل تحميل الملف');
+    movies = await res.json();
+    renderList();
+    if (movies.length > 0) playAt(0);
+  } catch (err) {
+    console.error(err);
+    document.body.innerHTML = '<div style="color:#fff;padding:40px;text-align:center;font-family:Cairo,sans-serif">تعذر تحميل قائمة الأفلام من datamov.json<br>تأكد أن الملف موجود في نفس المجلد.</div>';
+  }
+}
+
+const video = document.getElementById('video');
+const playerShell = document.getElementById('playerShell');
+const centerPlay = document.getElementById('centerPlay');
+const playPauseBtn = document.getElementById('playPauseBtn');
+const playIco = document.getElementById('playIco');
+const pauseIco = document.getElementById('pauseIco');
+const progressWrap = document.getElementById('progressWrap');
+const progressFill = document.getElementById('progressFill');
+const timeTip = document.getElementById('timeTip');
+const timeText = document.getElementById('timeText');
+const volSlider = document.getElementById('volSlider');
+const muteBtn = document.getElementById('muteBtn');
+const speedSel = document.getElementById('speedSel');
+const fsBtn = document.getElementById('fsBtn');
+const pipBtn = document.getElementById('pipBtn');
+const ccBtn = document.getElementById('ccBtn');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const loader = document.getElementById('loader');
+const errorBox = document.getElementById('errorBox');
+const ambient = document.getElementById('ambient');
+const topTitle = document.getElementById('topTitle');
+const detailTitle = document.getElementById('detailTitle');
+const detailYear = document.getElementById('detailYear');
+const detailDesc = document.getElementById('detailDesc');
+const playlistBtn = document.getElementById('playlistBtn');
+const playlistPanel = document.getElementById('playlistPanel');
+const closePanel = document.getElementById('closePanel');
+const search = document.getElementById('search');
+const moviesList = document.getElementById('moviesList');
+
+// المتغيرات تم تعريفها أعلاه داخل loadMovies scope، نعيد تعريفها هنا بشكل صحيح
+let isPlaying = false;
+let hideTimeout;
+let isDragging = false;
+let subtitlesEnabled = true;
+
+function formatTime(s) {
+  if (!isFinite(s) || isNaN(s)) return "0:00";
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2, '0')}`;
+}
+
+function showUI() {
+  playerShell.classList.add('show-ui');
+  clearTimeout(hideTimeout);
+  hideTimeout = setTimeout(() => {
+    if (!video.paused && !playlistPanel.classList.contains('open')) {
+      playerShell.classList.remove('show-ui');
+    }
+  }, 2800);
+}
+
+function renderList(filter = "") {
+  moviesList.innerHTML = "";
+  const list = movies.filter(m =>
+    m.titleAr.includes(filter) || m.title.toLowerCase().includes(filter.toLowerCase()) || m.desc.includes(filter)
+  );
+  list.forEach(movie => {
+    const idx = movies.indexOf(movie);
+    const item = document.createElement('div');
+    item.className = `movie-item ${idx === currentIndex ? 'active' : ''}`;
+    item.innerHTML = `
+      <img src="${movie.poster}" alt="" onerror="this.style.background='#333'">
+      <div class="movie-item-info">
+        <h4>${movie.titleAr}</h4>
+        <div class="meta">${movie.year} • ${movie.title}</div>
+      </div>
+    `;
+    item.onclick = () => { playAt(idx); playlistPanel.classList.remove('open'); };
+    moviesList.appendChild(item);
+  });
+}
+
+function playAt(index) {
+  if (index < 0 || index >= movies.length) return;
+  currentIndex = index;
+  const m = movies[index];
+  errorBox.style.display = "none";
+  loader.style.display = "block";
+
+  // إزالة مسارات الترجمة القديمة
+  while (video.textTracks.length > 0) {
+    // لا يمكن حذف textTracks مباشرة بسهولة، لذا نزيل عناصر track
+  }
+  const oldTracks = video.querySelectorAll('track');
+  oldTracks.forEach(t => t.remove());
+
+  video.src = m.src;
+  video.load();
+
+  // إضافة الترجمة إذا كان الرابط موجودًا
+  if (m.srt && m.srt.trim()) {
+    const track = document.createElement('track');
+    track.kind = 'subtitles';
+    track.label = 'العربية / English';
+    track.srclang = 'ar';
+    track.src = m.srt;
+    track.default = subtitlesEnabled;
+    video.appendChild(track);
+    // تفعيل بعد التحميل
+    video.addEventListener('loadedmetadata', () => {
+      if (video.textTracks[0]) {
+        video.textTracks[0].mode = subtitlesEnabled ? 'showing' : 'hidden';
+      }
+    }, { once: true });
+  }
+
+  ambient.style.backgroundImage = `url('${m.poster}')`;
+  topTitle.textContent = m.titleAr;
+  detailTitle.textContent = m.titleAr;
+  detailYear.textContent = m.year;
+  detailDesc.textContent = m.desc;
+  renderList(search.value);
+  video.play().catch(() => {});
+  updateCCButton();
+}
+
+function updatePlayState() {
+  isPlaying = !video.paused;
+  playIco.style.display = isPlaying ? "none" : "block";
+  pauseIco.style.display = isPlaying ? "block" : "none";
+  centerPlay.classList.toggle('hidden', isPlaying);
+}
+
+function togglePlay() {
+  if (video.paused) video.play();
+  else video.pause();
+}
+
+video.addEventListener('play', updatePlayState);
+video.addEventListener('pause', updatePlayState);
+video.addEventListener('waiting', () => loader.style.display = "block");
+video.addEventListener('playing', () => loader.style.display = "none");
+video.addEventListener('error', () => {
+  loader.style.display = "none";
+  errorBox.style.display = "block";
+});
+video.addEventListener('loadedmetadata', () => {
+  loader.style.display = "none";
+  updateTime();
+});
+video.addEventListener('timeupdate', updateTime);
+video.addEventListener('ended', () => {
+  if (currentIndex < movies.length - 1) playAt(currentIndex + 1);
+});
+
+function updateTime() {
+  const cur = video.currentTime || 0;
+  const dur = video.duration || 0;
+  timeText.textContent = `${formatTime(cur)} / ${formatTime(dur)}`;
+  if (dur && !isDragging) {
+    progressFill.style.width = `${(cur / dur) * 100}%`;
+  }
+}
+
+// Progress interactions
+function seekFromEvent(e) {
+  const rect = progressWrap.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  let pos = (clientX - rect.left) / rect.width;
+  pos = Math.max(0, Math.min(1, pos));
+  if (video.duration) video.currentTime = pos * video.duration;
+  progressFill.style.width = `${pos * 100}%`;
+}
+progressWrap.addEventListener('mousedown', (e) => { isDragging = true; progressWrap.classList.add('dragging'); seekFromEvent(e); });
+progressWrap.addEventListener('mousemove', (e) => {
+  if (isDragging) seekFromEvent(e);
+  // tooltip
+  const rect = progressWrap.getBoundingClientRect();
+  const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+  timeTip.style.display = "block";
+  timeTip.style.left = `${pos * 100}%`;
+  timeTip.textContent = formatTime(pos * (video.duration || 0));
+});
+progressWrap.addEventListener('mouseleave', () => timeTip.style.display = "none");
+document.addEventListener('mouseup', () => { isDragging = false; progressWrap.classList.remove('dragging'); });
+
+// Touch support
+progressWrap.addEventListener('touchstart', (e) => { isDragging = true; progressWrap.classList.add('dragging'); seekFromEvent(e); }, {passive:false});
+progressWrap.addEventListener('touchmove', (e) => { if (isDragging) { e.preventDefault(); seekFromEvent(e); } }, {passive:false});
+document.addEventListener('touchend', () => { isDragging = false; progressWrap.classList.remove('dragging'); });
+
+// Volume
+volSlider.addEventListener('input', () => {
+  video.volume = volSlider.value;
+  video.muted = video.volume == 0;
+});
+muteBtn.addEventListener('click', () => {
+  video.muted = !video.muted;
+  volSlider.value = video.muted ? 0 : (video.volume || 1);
+});
+
+speedSel.addEventListener('change', () => video.playbackRate = parseFloat(speedSel.value));
+
+fsBtn.addEventListener('click', () => {
+  if (!document.fullscreenElement) {
+    playerShell.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen();
+  }
+});
+
+pipBtn.addEventListener('click', async () => {
+  try {
+    if (document.pictureInPictureElement) await document.exitPictureInPicture();
+    else await video.requestPictureInPicture();
+  } catch(e) {}
+});
+
+function updateCCButton() {
+  const hasSubs = movies[currentIndex]?.srt && movies[currentIndex].srt.trim();
+  ccBtn.style.opacity = hasSubs ? "1" : "0.4";
+  ccBtn.style.color = subtitlesEnabled && hasSubs ? "#e50914" : "#fff";
+  ccBtn.title = hasSubs ? (subtitlesEnabled ? "إخفاء الترجمة" : "إظهار الترجمة") : "لا توجد ترجمة";
+}
+
+ccBtn.addEventListener('click', () => {
+  if (!movies[currentIndex]?.srt) return;
+  subtitlesEnabled = !subtitlesEnabled;
+  if (video.textTracks[0]) {
+    video.textTracks[0].mode = subtitlesEnabled ? 'showing' : 'hidden';
+  }
+  updateCCButton();
+});
+
+prevBtn.addEventListener('click', () => playAt(currentIndex - 1));
+nextBtn.addEventListener('click', () => playAt(currentIndex + 1));
+playPauseBtn.addEventListener('click', togglePlay);
+centerPlay.addEventListener('click', togglePlay);
+
+// Playlist
+playlistBtn.addEventListener('click', () => playlistPanel.classList.toggle('open'));
+closePanel.addEventListener('click', () => playlistPanel.classList.remove('open'));
+search.addEventListener('input', () => renderList(search.value));
+
+// Keyboard
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  switch(e.key.toLowerCase()) {
+    case ' ': e.preventDefault(); togglePlay(); break;
+    case 'arrowleft': video.currentTime = Math.max(0, video.currentTime - 5); break;
+    case 'arrowright': video.currentTime = Math.min(video.duration || 0, video.currentTime + 5); break;
+    case 'arrowup': video.volume = Math.min(1, video.volume + 0.1); volSlider.value = video.volume; break;
+    case 'arrowdown': video.volume = Math.max(0, video.volume - 0.1); volSlider.value = video.volume; break;
+    case 'f': fsBtn.click(); break;
+    case 'n': nextBtn.click(); break;
+    case 'p': prevBtn.click(); break;
+    case 'm': muteBtn.click(); break;
+    case 'escape': playlistPanel.classList.remove('open'); break;
+  }
+  showUI();
+});
+
+// Auto UI hide + touch
+playerShell.addEventListener('mousemove', showUI);
+playerShell.addEventListener('touchstart', showUI);
+playerShell.addEventListener('click', (e) => {
+  if (e.target === video || e.target === playerShell) showUI();
+});
+
+// Double tap to seek (mobile)
+let lastTap = 0;
+video.addEventListener('touchend', (e) => {
+  const now = Date.now();
+  if (now - lastTap < 300) {
+    const rect = video.getBoundingClientRect();
+    const x = e.changedTouches[0].clientX - rect.left;
+    if (x < rect.width / 2) video.currentTime = Math.max(0, video.currentTime - 10);
+    else video.currentTime = Math.min(video.duration || 0, video.currentTime + 10);
+  }
+  lastTap = now;
+});
+
+// Init
+loadMovies();
+showUI();
+</script>
+</body>
+</html>
