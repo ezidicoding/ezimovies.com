@@ -160,7 +160,7 @@ video {
   </aside>
 
   <div class="screen" id="screen">
-    <video id="video" playsinline></video>
+    <video id="video" playsinline crossorigin="anonymous"></video>
     <div class="loader" id="loader"></div>
     <div class="error" id="error">تعذر تشغيل الفيديو</div>
 
@@ -230,28 +230,72 @@ function renderChannels(filter = '') {
   });
 }
 
+function srtToVtt(srt) {
+  // تحويل SRT إلى WebVTT
+  let text = srt.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
+  if (text.startsWith('WEBVTT')) return text;
+  // استبدال الفاصلة بنقطة في التوقيتات
+  text = text.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
+  return 'WEBVTT\n\n' + text;
+}
+
+async function loadSubtitles(m) {
+  if (!m.srt || !m.srt.trim()) return;
+  try {
+    const resp = await fetch(m.srt);
+    if (!resp.ok) {
+      console.warn('فشل تحميل الترجمة:', resp.status);
+      return;
+    }
+    let content = await resp.text();
+    // إذا كان SRT أو لا يبدأ بـ WEBVTT، حوّله
+    if (m.srt.toLowerCase().includes('.srt') || !content.trim().toUpperCase().startsWith('WEBVTT')) {
+      content = srtToVtt(content);
+    }
+    const blob = new Blob([content], { type: 'text/vtt' });
+    const blobUrl = URL.createObjectURL(blob);
+
+    const t = document.createElement('track');
+    t.kind = 'subtitles';
+    t.srclang = 'ar';
+    t.label = 'ترجمة عربية';
+    t.src = blobUrl;
+    t.default = subsOn;
+    video.appendChild(t);
+
+    // تفعيل الترجمة بعد تحميلها
+    t.addEventListener('load', () => {
+      const tracks = video.textTracks;
+      if (tracks.length > 0) {
+        tracks[0].mode = subsOn ? 'showing' : 'hidden';
+      }
+    });
+    // في حال كان الـ track جاهزاً بسرعة
+    setTimeout(() => {
+      if (video.textTracks.length && video.textTracks[0].mode !== (subsOn ? 'showing' : 'hidden')) {
+        video.textTracks[0].mode = subsOn ? 'showing' : 'hidden';
+      }
+    }, 500);
+  } catch (e) {
+    console.warn('خطأ في الترجمة:', e);
+  }
+}
+
 function play(i) {
   if (i < 0 || i >= movies.length) return;
   current = i;
   const m = movies[i];
   error.style.display = 'none';
   loader.style.display = 'block';
+  // إزالة الترجمات القديمة
   video.querySelectorAll('track').forEach(t => t.remove());
+  // إلغاء أي blob قديم (اختياري)
   video.src = m.src;
   video.load();
-  if (m.srt && m.srt.trim()) {
-    const t = document.createElement('track');
-    t.kind = 'subtitles';
-    t.srclang = 'ar';
-    t.src = m.srt;
-    t.default = subsOn;
-    video.appendChild(t);
-    video.onloadedmetadata = () => {
-      if (video.textTracks[0]) video.textTracks[0].mode = subsOn ? 'showing' : 'hidden';
-    };
-  }
   nowPlaying.textContent = m.titleAr;
   renderChannels(search.value);
+  // تحميل الترجمة
+  loadSubtitles(m);
   video.play().catch(() => {});
 }
 
