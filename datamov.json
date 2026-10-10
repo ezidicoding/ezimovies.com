@@ -5,8 +5,8 @@
     "year": 2008,
     "desc": "فيلم رسوم متحركة بصيغة MP4 مع دعم الترجمة العربية الكاملة.",
     "poster": "https://upload.wikimedia.org/wikipedia/commons/c/c5/Big_buck_bunny_poster_big.jpg",
-    "src": "https://uploads.video-commander.com/sample/BigBuckBunny.mp4",
-    "srt": "https://raw.githubusercontent.com/demuxed/big-buck-captions/main/big-buck-bunny.srt"
+    "src": "https://video-nss-b.xhcdn.com/YO8cjiYpoj2ZFWnCZLjsTA==,1791666000/media=hls4/multi=256x144:144p:,426x240:240p:,854x480:480p:,1280x720:720p.7700b:,1920x1080:1080p.7700b:/030/055/921/1080p.7700b.av1.mp4.m3u8",
+    "srt": "https://raw.githubusercontent.com/ezidicoding/ezimovies.com/refs/heads/main/Kurtlar%20Vadisi%20Vatan%20_%20Tek%20Par%C3%A7a%204K%20ULTRA%20HD%20%C4%B0ZLE-tr_ar.srt"
   },
   {
     "title": "Sample MP4 Video 2",
