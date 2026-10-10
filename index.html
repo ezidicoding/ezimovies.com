@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>مشغل الستلايت السينمائي المتطور</title>
+<title>مشغل الستلايت السينمائي</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
-<!-- مكتبة HLS لدعم تشغيل قنوات m3u8 و m3u -->
+<!-- مكتبة HLS لدعم قنوات m3u8 و m3u -->
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -13,7 +13,7 @@ body, html { width: 100%; height: 100%; background: #000; color: #fff; font-fami
 
 .tv-box { display: flex; width: 100vw; height: 100vh; background: #0b0b0b; }
 
-/* قائمة القنوات الخفيفة */
+/* قائمة القنوات الجانبية */
 .channels-panel {
   width: 280px;
   background: #141414;
@@ -87,7 +87,7 @@ body, html { width: 100%; height: 100%; background: #000; color: #fff; font-fami
   align-items: center;
 }
 
-/* حاوية الفيديو لضمان التمركز وتحديد مساحة الترجمة فوق الفيديو بدقة */
+/* حاوية الفيديو لضبط إطار الترجمة داخله بدقة */
 .video-wrapper {
   position: relative;
   width: 100%;
@@ -104,10 +104,10 @@ video {
   background: #000;
 }
 
-/* طبقة الترجمة الموضعية تماماً فوق مساحة الفيديو وليس أسفل الشاشة الكلية */
+/* طبقة الترجمة تظهر على الفيديو نفسه (أسفل إطار الفيديو بدقة) */
 .subtitles-layer {
   position: absolute;
-  bottom: 8%; /* تظهر فوق حافة الفيديو مباشرة */
+  bottom: 8%;
   left: 10%;
   right: 10%;
   text-align: center;
@@ -122,7 +122,7 @@ video {
 }
 .subtitles-layer span {
   display: inline-block;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.75);
   padding: 4px 14px;
   border-radius: 4px;
   max-width: 85%;
@@ -130,31 +130,37 @@ video {
   white-space: pre-line;
 }
 
-/* الشريط العلوي والسفلي للتحكم */
-.top-bar {
+/* عناصر التحكم (الشريط العلوي والسفلي) - افتراضياً مخفية وتظهر عند إضافة كلاس show-ui */
+.top-bar, .bottom-bar {
   position: absolute;
-  top: 0; left: 0; right: 0;
+  left: 0; right: 0;
+  z-index: 20;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.top-bar {
+  top: 0;
   padding: 12px 20px;
-  background: linear-gradient(rgba(0,0,0,0.8), transparent);
+  background: linear-gradient(rgba(0,0,0,0.85), transparent);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  z-index: 20;
-  opacity: 0;
-  transition: opacity 0.2s;
 }
-.screen-panel:hover .top-bar, .screen-panel.show-ui .top-bar { opacity: 1; }
 
 .bottom-bar {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
+  bottom: 0;
   padding: 10px 15px 15px;
-  background: linear-gradient(transparent, rgba(0,0,0,0.85));
-  z-index: 20;
-  opacity: 0;
-  transition: opacity 0.2s;
+  background: linear-gradient(transparent, rgba(0,0,0,0.9));
 }
-.screen-panel:hover .bottom-bar, .screen-panel.show-ui .bottom-bar { opacity: 1; }
+
+/* إظهار الواجهة عند تفاعل المستخدم أو إيقاف الفيديو */
+.screen-panel.show-ui .top-bar,
+.screen-panel.show-ui .bottom-bar {
+  opacity: 1;
+  visibility: visible;
+}
 
 .progress-track {
   height: 4px;
@@ -216,7 +222,7 @@ video {
   </aside>
 
   <!-- شاشة العرض -->
-  <div class="screen-panel" id="screenPanel">
+  <div class="screen-panel show-ui" id="screenPanel">
     <div class="video-wrapper">
       <video id="videoPlayer" playsinline crossorigin="anonymous"></video>
       <div class="subtitles-layer" id="subtitlesLayer"></div>
@@ -254,6 +260,7 @@ let playlist = [];
 let currentIndex = 0;
 let subsEnabled = true;
 let hlsInstance = null;
+let hideTimer = null;
 
 const video = document.getElementById('videoPlayer');
 const channelsList = document.getElementById('channelsList');
@@ -367,7 +374,6 @@ function playChannel(index) {
   video.querySelectorAll('track').forEach(t => t.remove());
   subtitlesLayer.innerHTML = '';
 
-  // تنظيف أي بث HLS سابق
   if (hlsInstance) {
     hlsInstance.destroy();
     hlsInstance = null;
@@ -375,7 +381,6 @@ function playChannel(index) {
 
   const srcUrl = item.src;
 
-  // التحقق مما إذا كان الرابط يدعم m3u8 أو m3u
   if (srcUrl.includes('.m3u8') || srcUrl.includes('.m3u')) {
     if (Hls.isSupported()) {
       hlsInstance = new Hls();
@@ -389,7 +394,6 @@ function playChannel(index) {
       video.play().catch(() => {});
     }
   } else {
-    // تشغيل ملفات MP4 العادية
     video.src = srcUrl;
     video.load();
     video.play().catch(() => {});
@@ -407,51 +411,76 @@ function formatTime(sec) {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+// نظام إخفاء وإظهار الواجهة (بعد 5 ثوانٍ من التشغيل، وعند النقر تظهر)
+function resetHideTimer() {
+  screenPanel.classList.add('show-ui');
+  clearTimeout(hideTimer);
+  
+  if (!video.paused) {
+    hideTimer = setTimeout(() => {
+      screenPanel.classList.remove('show-ui');
+    }, 5000); // 5 ثوانٍ تماماً
+  }
+}
+
+screenPanel.onclick = (e) => {
+  // منع إخفاء الواجهة إذا النقر تم على قائمة القنوات الجانبية أو أزرار التحكم
+  resetHideTimer();
+};
+
 video.onwaiting = () => loadingSpinner.style.display = 'block';
-video.onplaying = () => loadingSpinner.style.display = 'none';
+video.onplaying = () => {
+  loadingSpinner.style.display = 'none';
+  resetHideTimer(); // يبدأ العد التنازلي لإخفاء الواجهة بعد التشغيل
+};
 video.onerror = () => loadingSpinner.style.display = 'none';
 video.ontimeupdate = () => {
   timeText.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
   if (video.duration) progressBar.style.width = (video.currentTime / video.duration) * 100 + '%';
   renderSubtitles();
 };
-video.onplay = () => { playSvg.style.display = 'none'; pauseSvg.style.display = 'block'; };
-video.onpause = () => { playSvg.style.display = 'block'; pauseSvg.style.display = 'none'; };
+video.onplay = () => { 
+  playSvg.style.display = 'none'; 
+  pauseSvg.style.display = 'block'; 
+  resetHideTimer();
+};
+video.onpause = () => { 
+  playSvg.style.display = 'block'; 
+  pauseSvg.style.display = 'none'; 
+  screenPanel.classList.add('show-ui'); // إبقاء الواجهة ظاهرة عند الإيقاف المؤقت
+  clearTimeout(hideTimer);
+};
 video.onended = () => { if (currentIndex < playlist.length - 1) playChannel(currentIndex + 1); };
 
 progressTrack.onclick = e => {
   const rect = progressTrack.getBoundingClientRect();
   const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
   if (video.duration) video.currentTime = pos * video.duration;
+  e.stopPropagation();
 };
 
-document.getElementById('playPauseBtn').onclick = () => video.paused ? video.play() : video.pause();
-document.getElementById('prevBtn').onclick = () => playChannel(currentIndex - 1);
-document.getElementById('nextBtn').onclick = () => playChannel(currentIndex + 1);
-document.getElementById('fsBtn').onclick = () => {
+document.getElementById('playPauseBtn').onclick = (e) => {
+  video.paused ? video.play() : video.pause();
+  e.stopPropagation();
+};
+document.getElementById('prevBtn').onclick = (e) => { playChannel(currentIndex - 1); e.stopPropagation(); };
+document.getElementById('nextBtn').onclick = (e) => { playChannel(currentIndex + 1); e.stopPropagation(); };
+document.getElementById('fsBtn').onclick = (e) => {
   if (!document.fullscreenElement) screenPanel.requestFullscreen();
   else document.exitFullscreen();
+  e.stopPropagation();
 };
-document.getElementById('ccBtn').onclick = () => {
+document.getElementById('ccBtn').onclick = (e) => {
   subsEnabled = !subsEnabled;
   document.getElementById('ccBtn').style.color = subsEnabled ? '#e50914' : '#fff';
   renderSubtitles();
+  e.stopPropagation();
 };
 
-document.getElementById('togglePanelBtn').onclick = () => channelsPanel.classList.toggle('hidden');
-document.getElementById('openPanelBtn').onclick = () => channelsPanel.classList.toggle('hidden');
+document.getElementById('togglePanelBtn').onclick = (e) => { channelsPanel.classList.toggle('hidden'); e.stopPropagation(); };
+document.getElementById('openPanelBtn').onclick = (e) => { channelsPanel.classList.toggle('hidden'); e.stopPropagation(); };
+searchBox.onclick = (e) => e.stopPropagation();
 searchBox.oninput = e => renderChannels(e.target.value);
-
-let uiTimer;
-function showUI() {
-  screenPanel.classList.add('show-ui');
-  clearTimeout(uiTimer);
-  uiTimer = setTimeout(() => {
-    if (!video.paused) screenPanel.classList.remove('show-ui');
-  }, 2500);
-}
-screenPanel.onmousemove = showUI;
-screenPanel.ontouchstart = showUI;
 
 loadData();
 </script>
