@@ -82,40 +82,6 @@ video {
   object-fit: contain;
   background: #000;
 }
-/* ترجمة مخصصة أسفل الفيديو */
-.subs {
-  position: absolute;
-  bottom: 12%;
-  left: 4%;
-  right: 4%;
-  text-align: center;
-  font-family: 'Cairo', sans-serif;
-  font-size: clamp(15px, 2.6vw, 34px);
-  line-height: 1.4;
-  color: #fff;
-  text-shadow:
-    0 0 3px #000,
-    0 0 6px #000,
-    1px 1px 2px #000,
-    -1px -1px 2px #000,
-    0 2px 4px rgba(0,0,0,0.8);
-  pointer-events: none;
-  z-index: 4;
-  padding: 4px 8px;
-  max-height: 35%;
-  overflow: hidden;
-  word-wrap: break-word;
-  white-space: pre-line;
-  opacity: 1;
-  transition: opacity 0.25s;
-}
-.subs.hide { opacity: 0; }
-.subs span {
-  display: inline-block;
-  background: rgba(0, 0, 0, 0.55);
-  padding: 2px 8px;
-  border-radius: 4px;
-}
 .top-info {
   position: absolute;
   top: 0; left: 0; right: 0;
@@ -194,8 +160,7 @@ video {
   </aside>
 
   <div class="screen" id="screen">
-    <video id="video" playsinline crossorigin="anonymous"></video>
-    <div id="subs" class="subs"></div>
+    <video id="video" playsinline></video>
     <div class="loader" id="loader"></div>
     <div class="error" id="error">تعذر تشغيل الفيديو</div>
 
@@ -241,24 +206,6 @@ const progressFill = document.getElementById('progressFill');
 const timeEl = document.getElementById('time');
 const playIco = document.getElementById('playIco');
 const pauseIco = document.getElementById('pauseIco');
-const subsEl = document.getElementById('subs');
-
-function updateSubs() {
-  if (!subsOn) {
-    subsEl.innerHTML = '';
-    return;
-  }
-  const tracks = video.textTracks;
-  if (!tracks.length) return;
-  const track = tracks[0];
-  let text = '';
-  if (track.activeCues) {
-    for (let i = 0; i < track.activeCues.length; i++) {
-      text += (text ? '\n' : '') + track.activeCues[i].text;
-    }
-  }
-  subsEl.innerHTML = text ? `<span>${text.replace(/\n/g, '<br>')}</span>` : '';
-}
 
 async function loadData() {
   try {
@@ -283,70 +230,28 @@ function renderChannels(filter = '') {
   });
 }
 
-function srtToVtt(srt) {
-  // تحويل SRT إلى WebVTT
-  let text = srt.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
-  if (text.startsWith('WEBVTT')) return text;
-  // استبدال الفاصلة بنقطة في التوقيتات
-  text = text.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
-  return 'WEBVTT\n\n' + text;
-}
-
-async function loadSubtitles(m) {
-  if (!m.srt || !m.srt.trim()) return;
-  try {
-    const resp = await fetch(m.srt);
-    if (!resp.ok) {
-      console.warn('فشل تحميل الترجمة:', resp.status);
-      return;
-    }
-    let content = await resp.text();
-    // إذا كان SRT أو لا يبدأ بـ WEBVTT، حوّله
-    if (m.srt.toLowerCase().includes('.srt') || !content.trim().toUpperCase().startsWith('WEBVTT')) {
-      content = srtToVtt(content);
-    }
-    const blob = new Blob([content], { type: 'text/vtt' });
-    const blobUrl = URL.createObjectURL(blob);
-
-    const t = document.createElement('track');
-    t.kind = 'subtitles';
-    t.srclang = 'ar';
-    t.label = 'ترجمة عربية';
-    t.src = blobUrl;
-    video.appendChild(t);
-
-    // نضع الـ track في وضع hidden دائماً حتى لا يظهر الأصلي، ونعرض نحن الترجمة المخصصة
-    const enableCustom = () => {
-      const tracks = video.textTracks;
-      if (tracks.length > 0) {
-        tracks[0].mode = 'hidden';
-        tracks[0].oncuechange = updateSubs;
-        updateSubs();
-      }
-    };
-    t.addEventListener('load', enableCustom);
-    setTimeout(enableCustom, 300);
-  } catch (e) {
-    console.warn('خطأ في الترجمة:', e);
-  }
-}
-
 function play(i) {
   if (i < 0 || i >= movies.length) return;
   current = i;
   const m = movies[i];
   error.style.display = 'none';
   loader.style.display = 'block';
-  // إزالة الترجمات القديمة
   video.querySelectorAll('track').forEach(t => t.remove());
-  subsEl.innerHTML = '';
-  // إلغاء أي blob قديم (اختياري)
   video.src = m.src;
   video.load();
+  if (m.srt && m.srt.trim()) {
+    const t = document.createElement('track');
+    t.kind = 'subtitles';
+    t.srclang = 'ar';
+    t.src = m.srt;
+    t.default = subsOn;
+    video.appendChild(t);
+    video.onloadedmetadata = () => {
+      if (video.textTracks[0]) video.textTracks[0].mode = subsOn ? 'showing' : 'hidden';
+    };
+  }
   nowPlaying.textContent = m.titleAr;
   renderChannels(search.value);
-  // تحميل الترجمة
-  loadSubtitles(m);
   video.play().catch(() => {});
 }
 
@@ -363,7 +268,6 @@ video.onerror = () => { loader.style.display = 'none'; error.style.display = 'bl
 video.ontimeupdate = () => {
   timeEl.textContent = `${fmt(video.currentTime)} / ${fmt(video.duration)}`;
   if (video.duration) progressFill.style.width = (video.currentTime / video.duration * 100) + '%';
-  updateSubs(); // تحديث الترجمة باستمرار
 };
 video.onplay = () => { playIco.style.display = 'none'; pauseIco.style.display = 'block'; };
 video.onpause = () => { playIco.style.display = 'block'; pauseIco.style.display = 'none'; };
@@ -381,8 +285,8 @@ document.getElementById('next').onclick = () => play(current + 1);
 document.getElementById('fs').onclick = () => document.fullscreenElement ? document.exitFullscreen() : screen.requestFullscreen();
 document.getElementById('cc').onclick = () => {
   subsOn = !subsOn;
+  if (video.textTracks[0]) video.textTracks[0].mode = subsOn ? 'showing' : 'hidden';
   document.getElementById('cc').style.color = subsOn ? '#e50914' : '#fff';
-  updateSubs();
 };
 document.getElementById('toggleCh').onclick = () => channels.classList.toggle('collapsed');
 document.getElementById('openCh').onclick = () => channels.classList.toggle('collapsed');
