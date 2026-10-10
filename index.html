@@ -2,171 +2,196 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>مشغل ستلايت - أفلام</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>مشغل ستلايت كلاسيكي</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; background: #111; color: #eee; font-family: 'Cairo', sans-serif; overflow: hidden; }
-.tv {
+html, body { height: 100%; background: #0c0c0c; color: #ddd; font-family: 'Cairo', sans-serif; overflow: hidden; }
+.tv-frame {
   display: flex;
-  height: 100vh;
-  background: #000;
+  height: 100dvh;
+  background: #111;
+  border: 8px solid #2a2a2a;
+  border-radius: 12px;
+  box-shadow: inset 0 0 40px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5);
+  overflow: hidden;
+  position: relative;
 }
-/* قائمة القنوات (ستلايت) */
+/* قائمة القنوات - تظهر كواجهة رئيسية أولاً */
 .channels {
-  width: 280px;
-  background: #1a1a1a;
-  border-left: 1px solid #333;
+  width: 100%;
+  height: 100%;
+  background: #1c1c1c;
   display: flex;
   flex-direction: column;
-  transition: width 0.25s;
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 20;
+  transition: opacity 0.3s, visibility 0.3s;
 }
-.channels.collapsed { width: 0; overflow: hidden; }
-.ch-header {
-  padding: 12px 14px;
-  background: #222;
-  font-weight: 600;
-  font-size: 0.95rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.channels.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.screen {
+  flex: 1;
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #000;
+  z-index: 10;
+}
+.back-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 7;
+  background: rgba(0,0,0,0.6);
+  border: 1px solid #555;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+.back-btn:hover { background: rgba(0,0,0,0.8); }
+.logo-area {
+  padding: 12px;
+  text-align: center;
+  background: #161616;
   border-bottom: 1px solid #333;
+}
+.logo-area img {
+  max-width: 140px;
+  max-height: 50px;
+  object-fit: contain;
 }
 .ch-search {
   margin: 8px 10px;
-  padding: 7px 10px;
+  padding: 6px 10px;
   background: #111;
   border: 1px solid #444;
   border-radius: 4px;
   color: #fff;
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   width: calc(100% - 20px);
   outline: none;
 }
 .ch-list { flex: 1; overflow-y: auto; }
 .ch-item {
   display: flex;
-  gap: 10px;
-  padding: 8px 12px;
+  gap: 8px;
+  padding: 7px 10px;
   cursor: pointer;
   border-bottom: 1px solid #2a2a2a;
   align-items: center;
+  font-size: 0.88rem;
 }
 .ch-item:hover { background: #252525; }
-.ch-item.active { background: #e50914; color: #fff; }
+.ch-item.active { background: #c41e3a; color: #fff; }
 .ch-item img {
-  width: 48px;
-  height: 68px;
+  width: 42px; height: 58px;
   object-fit: cover;
-  border-radius: 3px;
+  border-radius: 2px;
   background: #333;
   flex-shrink: 0;
 }
-.ch-item .info { flex: 1; min-width: 0; }
-.ch-item .info h4 { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ch-item .info span { font-size: 0.75rem; opacity: 0.7; }
+.ch-item .info h4 { font-size: 0.86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ch-item .info span { font-size: 0.72rem; opacity: 0.75; }
 
-/* منطقة الفيديو */
 .screen {
   flex: 1;
   position: relative;
   background: #000;
-  display: flex;
-  flex-direction: column;
 }
-video {
-  width: 100%;
-  height: 100%;
+.video-logo {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 6;
+  max-width: 120px;
+  max-height: 48px;
   object-fit: contain;
-  background: #000;
-}
-.top-info {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  padding: 10px 16px;
-  background: linear-gradient(rgba(0,0,0,0.7), transparent);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 1rem;
-  z-index: 5;
-  opacity: 0;
+  pointer-events: none;
+  opacity: 0.85;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.7));
   transition: opacity 0.3s;
 }
-.screen:hover .top-info, .screen.show .top-info { opacity: 1; }
+.screen:hover .video-logo,
+.screen.ui .video-logo { opacity: 1; }
+video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+.top-bar {
+  position: absolute; top: 0; left: 0; right: 0;
+  padding: 8px 14px;
+  background: linear-gradient(rgba(0,0,0,0.65), transparent);
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 0.95rem; z-index: 5; opacity: 0; transition: opacity 0.25s;
+}
+.screen:hover .top-bar, .screen.ui .top-bar { opacity: 1; }
 .controls {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  padding: 10px 14px 14px;
-  background: linear-gradient(transparent, rgba(0,0,0,0.8));
-  z-index: 5;
-  opacity: 0;
-  transition: opacity 0.3s;
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 8px 12px 12px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.75));
+  z-index: 5; opacity: 0; transition: opacity 0.25s;
 }
-.screen:hover .controls, .screen.show .controls { opacity: 1; }
+.screen:hover .controls, .screen.ui .controls { opacity: 1; }
 .progress {
-  height: 4px;
-  background: #444;
-  border-radius: 2px;
-  cursor: pointer;
-  margin-bottom: 10px;
-  direction: ltr;
+  height: 4px; background: #444; border-radius: 2px; cursor: pointer;
+  margin-bottom: 8px; direction: ltr;
 }
-.progress-fill { height: 100%; background: #e50914; width: 0%; border-radius: 2px; }
-.ctrl-row { display: flex; align-items: center; gap: 8px; }
+.progress-fill { height: 100%; background: #c41e3a; width: 0%; }
+.ctrl-row { display: flex; align-items: center; gap: 6px; }
 .btn {
-  background: transparent;
-  border: none;
-  color: #fff;
-  width: 40px; height: 40px;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none; color: #fff;
+  width: 38px; height: 38px; border-radius: 50%;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
-.btn:hover { background: rgba(255,255,255,0.15); }
-.btn svg { width: 22px; height: 22px; fill: currentColor; }
-.time { font-size: 0.8rem; min-width: 90px; text-align: center; }
+.btn:hover { background: rgba(255,255,255,0.12); }
+.btn svg { width: 20px; height: 20px; fill: currentColor; }
+.time { font-size: 0.78rem; min-width: 85px; text-align: center; }
 .loader {
-  position: absolute; top: 50%; left: 50%;
-  transform: translate(-50%,-50%);
-  width: 40px; height: 40px;
-  border: 3px solid #333; border-top-color: #e50914;
-  border-radius: 50%; animation: spin 0.7s linear infinite;
-  display: none; z-index: 10;
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: 36px; height: 36px; border: 3px solid #333; border-top-color: #c41e3a;
+  border-radius: 50%; animation: spin 0.7s linear infinite; display: none; z-index: 10;
 }
 @keyframes spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
 .error {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-  background: rgba(0,0,0,0.8); padding: 16px; border-radius: 6px;
-  display: none; text-align: center; z-index: 10;
+  background: rgba(0,0,0,0.85); padding: 14px; border-radius: 6px;
+  display: none; text-align: center; z-index: 10; font-size: 0.9rem;
 }
-@media (max-width: 700px) {
-  .channels { position: absolute; top: 0; right: 0; bottom: 0; z-index: 20; width: 260px; }
-  .channels.collapsed { transform: translateX(100%); width: 260px; }
+@media (max-width: 680px) {
+  .tv-frame { border-width: 4px; border-radius: 6px; }
+  .channels { width: 100%; }
+  .video-logo { max-width: 90px; top: 10px; left: 10px; }
+  .back-btn { top: 8px; right: 8px; padding: 5px 10px; }
 }
 </style>
 </head>
 <body>
-<div class="tv">
+<div class="tv-frame">
   <aside class="channels" id="channels">
-    <div class="ch-header">
-      <span>القنوات</span>
-      <button class="btn" id="toggleCh" style="width:32px;height:32px">☰</button>
+    <div class="logo-area">
+      <img id="logo" src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/Logo_of_the_Arabic_language.svg/200px-Logo_of_the_Arabic_language.svg.png" alt="شعار" onerror="this.style.display='none'">
     </div>
-    <input type="text" class="ch-search" id="search" placeholder="بحث...">
+    <input type="text" class="ch-search" id="search" placeholder="بحث قناة...">
     <div class="ch-list" id="chList"></div>
   </aside>
 
   <div class="screen" id="screen">
     <video id="video" playsinline></video>
+    <img class="video-logo" id="videoLogo" src="" alt="شعار">
+    <button class="back-btn" id="backBtn">← القائمة</button>
     <div class="loader" id="loader"></div>
     <div class="error" id="error">تعذر تشغيل الفيديو</div>
 
-    <div class="top-info">
+    <div class="top-bar">
       <div id="nowPlaying">--</div>
-      <button class="btn" id="openCh">☰</button>
+      <button class="btn" id="toggleBtn">☰</button>
     </div>
 
     <div class="controls">
@@ -181,7 +206,7 @@ video {
         </button>
         <button class="btn" id="next">▶</button>
         <div class="time" id="time">0:00 / 0:00</div>
-        <button class="btn" id="cc" title="ترجمة">CC</button>
+        <button class="btn" id="cc">CC</button>
         <button class="btn" id="fs">⛶</button>
       </div>
     </div>
@@ -192,6 +217,7 @@ video {
 let movies = [];
 let current = 0;
 let subsOn = true;
+let hls = null;
 
 const video = document.getElementById('video');
 const chList = document.getElementById('chList');
@@ -206,6 +232,13 @@ const progressFill = document.getElementById('progressFill');
 const timeEl = document.getElementById('time');
 const playIco = document.getElementById('playIco');
 const pauseIco = document.getElementById('pauseIco');
+const logo = document.getElementById('logo');
+const videoLogo = document.getElementById('videoLogo');
+
+// رابط الشعار (يظهر في القائمة وفوق الفيديو)
+const LOGO_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/PNG_Test.png/120px-PNG_Test.png";
+logo.src = LOGO_URL;
+videoLogo.src = LOGO_URL;
 
 async function loadData() {
   try {
@@ -214,20 +247,24 @@ async function loadData() {
     renderChannels();
     if (movies.length) play(0);
   } catch (e) {
-    chList.innerHTML = '<div style="padding:20px;color:#f66">تعذر تحميل datamov.json<br>شغّل الملف عبر سيرفر محلي</div>';
+    chList.innerHTML = '<div style="padding:16px;color:#f66;font-size:0.85rem">تعذر تحميل datamov.json<br>استخدم سيرفر محلي</div>';
   }
 }
 
 function renderChannels(filter = '') {
   chList.innerHTML = '';
   movies.forEach((m, i) => {
-    if (filter && !m.titleAr.includes(filter) && !m.title.toLowerCase().includes(filter.toLowerCase())) return;
+    if (filter && !(m.titleAr||'').includes(filter) && !(m.title||'').toLowerCase().includes(filter.toLowerCase())) return;
     const div = document.createElement('div');
     div.className = 'ch-item' + (i === current ? ' active' : '');
-    div.innerHTML = `<img src="${m.poster}" onerror="this.style.background='#444'"><div class="info"><h4>${m.titleAr}</h4><span>${m.year}</span></div>`;
-    div.onclick = () => { play(i); if (window.innerWidth < 700) channels.classList.add('collapsed'); };
+    div.innerHTML = `<img src="${m.poster||''}" onerror="this.style.background='#444'"><div class="info"><h4>${m.titleAr||m.title}</h4><span>${m.year||''}</span></div>`;
+    div.onclick = () => { play(i); channels.classList.add('hidden'); };
     chList.appendChild(div);
   });
+}
+
+function destroyHls() {
+  if (hls) { hls.destroy(); hls = null; }
 }
 
 function play(i) {
@@ -236,67 +273,96 @@ function play(i) {
   const m = movies[i];
   error.style.display = 'none';
   loader.style.display = 'block';
+  destroyHls();
   video.querySelectorAll('track').forEach(t => t.remove());
-  video.src = m.src;
-  video.load();
+  video.src = '';
+
+  const src = m.src || '';
+  if (src.includes('.m3u8') || src.includes('.m3u')) {
+    if (Hls.isSupported()) {
+      hls = new Hls({ enableWorker: true });
+      hls.loadSource(src);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(()=>{}));
+      hls.on(Hls.Events.ERROR, (ev, data) => {
+        if (data.fatal) { loader.style.display = 'none'; error.style.display = 'block'; }
+      });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = src;
+      video.play().catch(()=>{});
+    } else {
+      error.textContent = 'المتصفح لا يدعم HLS';
+      error.style.display = 'block';
+      loader.style.display = 'none';
+    }
+  } else {
+    video.src = src;
+    video.load();
+    video.play().catch(()=>{});
+  }
+
   if (m.srt && m.srt.trim()) {
     const t = document.createElement('track');
     t.kind = 'subtitles';
     t.srclang = 'ar';
+    t.label = 'ترجمة';
     t.src = m.srt;
     t.default = subsOn;
     video.appendChild(t);
-    video.onloadedmetadata = () => {
+    const setMode = () => {
       if (video.textTracks[0]) video.textTracks[0].mode = subsOn ? 'showing' : 'hidden';
     };
+    video.addEventListener('loadedmetadata', setMode, {once:true});
   }
-  nowPlaying.textContent = m.titleAr;
+
+  nowPlaying.textContent = m.titleAr || m.title || 'قناة';
   renderChannels(search.value);
-  video.play().catch(() => {});
 }
 
 function fmt(s) {
   if (!s || isNaN(s)) return '0:00';
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
+  const m = Math.floor(s/60), sec = Math.floor(s%60);
   return `${m}:${sec.toString().padStart(2,'0')}`;
 }
 
 video.onwaiting = () => loader.style.display = 'block';
 video.onplaying = () => loader.style.display = 'none';
-video.onerror = () => { loader.style.display = 'none'; error.style.display = 'block'; };
+video.onerror = () => { if (!hls) { loader.style.display='none'; error.style.display='block'; } };
 video.ontimeupdate = () => {
   timeEl.textContent = `${fmt(video.currentTime)} / ${fmt(video.duration)}`;
   if (video.duration) progressFill.style.width = (video.currentTime / video.duration * 100) + '%';
 };
-video.onplay = () => { playIco.style.display = 'none'; pauseIco.style.display = 'block'; };
-video.onpause = () => { playIco.style.display = 'block'; pauseIco.style.display = 'none'; };
-video.onended = () => { if (current < movies.length - 1) play(current + 1); };
+video.onplay = () => { playIco.style.display='none'; pauseIco.style.display='block'; };
+video.onpause = () => { playIco.style.display='block'; pauseIco.style.display='none'; };
+video.onended = () => { if (current < movies.length-1) play(current+1); };
 
 progress.onclick = e => {
   const r = progress.getBoundingClientRect();
-  const p = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+  const p = Math.max(0, Math.min(1, (e.clientX - r.left)/r.width));
   if (video.duration) video.currentTime = p * video.duration;
 };
 
 document.getElementById('playPause').onclick = () => video.paused ? video.play() : video.pause();
-document.getElementById('prev').onclick = () => play(current - 1);
-document.getElementById('next').onclick = () => play(current + 1);
+document.getElementById('prev').onclick = () => play(current-1);
+document.getElementById('next').onclick = () => play(current+1);
 document.getElementById('fs').onclick = () => document.fullscreenElement ? document.exitFullscreen() : screen.requestFullscreen();
 document.getElementById('cc').onclick = () => {
   subsOn = !subsOn;
   if (video.textTracks[0]) video.textTracks[0].mode = subsOn ? 'showing' : 'hidden';
-  document.getElementById('cc').style.color = subsOn ? '#e50914' : '#fff';
+  document.getElementById('cc').style.color = subsOn ? '#c41e3a' : '#fff';
 };
-document.getElementById('toggleCh').onclick = () => channels.classList.toggle('collapsed');
-document.getElementById('openCh').onclick = () => channels.classList.toggle('collapsed');
+document.getElementById('toggleBtn').onclick = () => channels.classList.toggle('hidden');
+document.getElementById('backBtn').onclick = () => {
+  channels.classList.remove('hidden');
+  video.pause();
+};
 search.oninput = () => renderChannels(search.value);
 
 let hideT;
 function showUI() {
-  screen.classList.add('show');
+  screen.classList.add('ui');
   clearTimeout(hideT);
-  hideT = setTimeout(() => { if (!video.paused) screen.classList.remove('show'); }, 2500);
+  hideT = setTimeout(() => { if (!video.paused) screen.classList.remove('ui'); }, 2200);
 }
 screen.onmousemove = showUI;
 screen.ontouchstart = showUI;
@@ -304,12 +370,12 @@ screen.ontouchstart = showUI;
 document.onkeydown = e => {
   if (e.target.tagName === 'INPUT') return;
   if (e.key === ' ') { e.preventDefault(); video.paused ? video.play() : video.pause(); }
-  if (e.key === 'ArrowRight') play(current + 1);
-  if (e.key === 'ArrowLeft') play(current - 1);
-  if (e.key === 'ArrowUp') video.currentTime = Math.min(video.duration || 0, video.currentTime + 10);
-  if (e.key === 'ArrowDown') video.currentTime = Math.max(0, video.currentTime - 10);
+  if (e.key === 'ArrowRight') play(current+1);
+  if (e.key === 'ArrowLeft') play(current-1);
+  if (e.key === 'ArrowUp') video.currentTime = Math.min(video.duration||0, video.currentTime+10);
+  if (e.key === 'ArrowDown') video.currentTime = Math.max(0, video.currentTime-10);
   if (e.key.toLowerCase() === 'f') document.getElementById('fs').click();
-  if (e.key.toLowerCase() === 'm') channels.classList.toggle('collapsed');
+  if (e.key.toLowerCase() === 'm') channels.classList.toggle('hidden');
   showUI();
 };
 
