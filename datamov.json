@@ -1,29 +1,29 @@
 [
   {
     "title": "Big Buck Bunny",
-    "titleAr": "الأرنب الكبير (MP4)",
+    "titleAr": "قناة الأرنب الكبير (MP4 + ترجمة)",
     "year": 2008,
-    "desc": "فيلم رسوم متحركة بصيغة MP4 مع دعم الترجمة العربية الكاملة.",
+    "desc": "ملف MP4 يدعم الترجمة العربية الـ SRT تماماً فوق الفيديو.",
     "poster": "https://upload.wikimedia.org/wikipedia/commons/c/c5/Big_buck_bunny_poster_big.jpg",
-    "src": "https://video-nss-b.xhcdn.com/YO8cjiYpoj2ZFWnCZLjsTA==,1791666000/media=hls4/multi=256x144:144p:,426x240:240p:,854x480:480p:,1280x720:720p.7700b:,1920x1080:1080p.7700b:/030/055/921/1080p.7700b.av1.mp4.m3u8",
-    "srt": "https://raw.githubusercontent.com/ezidicoding/ezimovies.com/refs/heads/main/Kurtlar%20Vadisi%20Vatan%20_%20Tek%20Par%C3%A7a%204K%20ULTRA%20HD%20%C4%B0ZLE-tr_ar.srt"
+    "src": "https://uploads.video-commander.com/sample/BigBuckBunny.mp4",
+    "srt": "https://raw.githubusercontent.com/demuxed/big-buck-captions/main/big-buck-bunny.srt"
   },
   {
-    "title": "Sample MP4 Video 2",
-    "titleAr": "قناة الأفلام الوثائقية",
-    "year": 2021,
-    "desc": "فيديو تجريبي بصيغة MP4 جاهز للتشغيل السريع.",
+    "title": "Live Stream Test",
+    "titleAr": "قناة البث الحي (M3U8)",
+    "year": 2026,
+    "desc": "قناة بث مباشر بصيغة m3u8 أو m3u.",
     "poster": "https://upload.wikimedia.org/wikipedia/commons/8/8f/Sintel_poster.jpg",
-    "src": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
-    "srt": ""
+    "src": "https://video-nss-b.xhcdn.com/YO8cjiYpoj2ZFWnCZLjsTA==,1791666000/media=hls4/multi=256x144:144p:,426x240:240p:,854x480:480p:,1280x720:720p.7700b:,1920x1080:1080p.7700b:/030/055/921/1080p.7700b.av1.mp4.m3u8",
+    "srt": "https://raw.githubusercontent.com/ezidicoding/ezimovies.com/refs/heads/main/Kurtlar Vadisi Vatan _ Tek Parça 4K ULTRA HD İZLE-tr_ar.srt"
   },
   {
-    "title": "Sample MP4 Video 3",
-    "titleAr": "قناة المنوعات الكلاسيكية",
-    "year": 2019,
-    "desc": "عروض مرئية خفيفة وسريعة التحميل.",
+    "title": "Sample MP4 2",
+    "titleAr": "قناة الأفلام الكلاسيكية (MP4)",
+    "year": 2020,
+    "desc": "فيديو إضافي بصيغة MP4.",
     "poster": "https://upload.wikimedia.org/wikipedia/commons/f/f3/Elephants_Dream_s3_both.jpg",
-    "src": "https://www.w3schools.com/html/mov_bbb.mp4",
+    "src": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
     "srt": ""
   }
 ]

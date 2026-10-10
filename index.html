@@ -3,8 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>مشغل الستلايت الخفيف</title>
+<title>مشغل الستلايت السينمائي المتطور</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<!-- مكتبة HLS لدعم تشغيل قنوات m3u8 و m3u -->
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body, html { width: 100%; height: 100%; background: #000; color: #fff; font-family: 'Cairo', sans-serif; overflow: hidden; }
@@ -19,6 +21,7 @@ body, html { width: 100%; height: 100%; background: #000; color: #fff; font-fami
   display: flex;
   flex-direction: column;
   transition: width 0.2s ease;
+  z-index: 30;
 }
 .channels-panel.hidden { width: 0; overflow: hidden; }
 
@@ -74,13 +77,22 @@ body, html { width: 100%; height: 100%; background: #000; color: #fff; font-fami
 .channel-info h4 { font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .channel-info span { font-size: 0.75rem; opacity: 0.7; }
 
-/* شاشة العرض والفيديو */
+/* شاشة العرض الحاوية للفيديو */
 .screen-panel {
   flex: 1;
   position: relative;
   background: #000;
   display: flex;
-  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+/* حاوية الفيديو لضمان التمركز وتحديد مساحة الترجمة فوق الفيديو بدقة */
+.video-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
   justify-content: center;
   align-items: center;
 }
@@ -92,28 +104,28 @@ video {
   background: #000;
 }
 
-/* طبقة الترجمة الخفيفة والواضحة */
+/* طبقة الترجمة الموضعية تماماً فوق مساحة الفيديو وليس أسفل الشاشة الكلية */
 .subtitles-layer {
   position: absolute;
-  bottom: 12%;
-  left: 5%;
-  right: 5%;
+  bottom: 8%; /* تظهر فوق حافة الفيديو مباشرة */
+  left: 10%;
+  right: 10%;
   text-align: center;
   font-family: 'Cairo', sans-serif;
-  font-size: clamp(16px, 2.5vw, 30px);
-  font-weight: 600;
+  font-size: clamp(15px, 2.2vw, 28px);
+  font-weight: 700;
   line-height: 1.4;
   color: #fff;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 0 10px rgba(0,0,0,0.7);
+  text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.8);
   pointer-events: none;
   z-index: 10;
 }
 .subtitles-layer span {
   display: inline-block;
-  background: rgba(0, 0, 0, 0.6);
-  padding: 4px 12px;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 4px 14px;
   border-radius: 4px;
-  max-width: 90%;
+  max-width: 85%;
   word-wrap: break-word;
   white-space: pre-line;
 }
@@ -127,7 +139,7 @@ video {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  z-index: 5;
+  z-index: 20;
   opacity: 0;
   transition: opacity 0.2s;
 }
@@ -138,7 +150,7 @@ video {
   bottom: 0; left: 0; right: 0;
   padding: 10px 15px 15px;
   background: linear-gradient(transparent, rgba(0,0,0,0.85));
-  z-index: 5;
+  z-index: 20;
   opacity: 0;
   transition: opacity 0.2s;
 }
@@ -180,12 +192,12 @@ video {
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
   display: none;
-  z-index: 12;
+  z-index: 25;
 }
 @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
 
 @media (max-width: 700px) {
-  .channels-panel { position: absolute; right: 0; top: 0; bottom: 0; z-index: 20; }
+  .channels-panel { position: absolute; right: 0; top: 0; bottom: 0; }
   .channels-panel.hidden { transform: translateX(100%); width: 280px; }
 }
 </style>
@@ -205,8 +217,11 @@ video {
 
   <!-- شاشة العرض -->
   <div class="screen-panel" id="screenPanel">
-    <video id="videoPlayer" playsinline crossorigin="anonymous"></video>
-    <div class="subtitles-layer" id="subtitlesLayer"></div>
+    <div class="video-wrapper">
+      <video id="videoPlayer" playsinline crossorigin="anonymous"></video>
+      <div class="subtitles-layer" id="subtitlesLayer"></div>
+    </div>
+    
     <div class="spinner" id="loadingSpinner"></div>
 
     <div class="top-bar">
@@ -227,7 +242,7 @@ video {
         <button class="flat-btn" id="nextBtn" title="التالي">▶</button>
         <div class="time-text" id="timeText">0:00 / 0:00</div>
         <div style="flex:1"></div>
-        <button class="flat-btn" id="ccBtn" style="font-weight:700; font-size:0.8rem;">CC</button>
+        <button class="flat-btn" id="ccBtn" title="الترجمة" style="font-weight:700; font-size:0.8rem;">CC</button>
         <button class="flat-btn" id="fsBtn" title="ملء الشاشة">⛶</button>
       </div>
     </div>
@@ -238,6 +253,7 @@ video {
 let playlist = [];
 let currentIndex = 0;
 let subsEnabled = true;
+let hlsInstance = null;
 
 const video = document.getElementById('videoPlayer');
 const channelsList = document.getElementById('channelsList');
@@ -351,12 +367,37 @@ function playChannel(index) {
   video.querySelectorAll('track').forEach(t => t.remove());
   subtitlesLayer.innerHTML = '';
 
-  video.src = item.src;
-  video.load();
+  // تنظيف أي بث HLS سابق
+  if (hlsInstance) {
+    hlsInstance.destroy();
+    hlsInstance = null;
+  }
+
+  const srcUrl = item.src;
+
+  // التحقق مما إذا كان الرابط يدعم m3u8 أو m3u
+  if (srcUrl.includes('.m3u8') || srcUrl.includes('.m3u')) {
+    if (Hls.isSupported()) {
+      hlsInstance = new Hls();
+      hlsInstance.loadSource(srcUrl);
+      hlsInstance.attachMedia(video);
+      hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+        video.play().catch(() => {});
+      });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = srcUrl;
+      video.play().catch(() => {});
+    }
+  } else {
+    // تشغيل ملفات MP4 العادية
+    video.src = srcUrl;
+    video.load();
+    video.play().catch(() => {});
+  }
+
   nowPlayingTitle.textContent = item.titleAr;
   renderChannels(searchBox.value);
   loadSubtitlesFile(item);
-  video.play().catch(() => {});
 }
 
 function formatTime(sec) {
