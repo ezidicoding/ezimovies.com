@@ -1,0 +1,685 @@
+<!-- بداية مشغل البث التلفزيوني المتزامن لبلوجر -->
+<div id="my-tv-app">
+  <style>
+    /* عزل تام لتنسيقات المشغل لمنع التداخل مع قالب بلوجر */
+    #my-tv-app {
+      --tv-accent: #e11d48;
+      --tv-gold: #ffd166;
+      --tv-bg: #070a12;
+      --tv-card: rgba(15, 23, 42, 0.85);
+      --tv-border: rgba(255, 255, 255, 0.15);
+      
+      all: initial;
+      display: block;
+      width: 100%;
+      max-width: 1000px;
+      margin: 20px auto;
+      font-family: system-ui, -apple-system, "Segoe UI", "Cairo", sans-serif;
+      direction: rtl;
+      box-sizing: border-box;
+      color: #ffffff;
+    }
+
+    #my-tv-app *,
+    #my-tv-app *::before,
+    #my-tv-app *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      line-height: normal;
+    }
+
+    /* رأس المشغل */
+    #my-tv-app .tv-header {
+      display: flex;
+      justify-content: flex-start;
+      margin-bottom: 10px;
+    }
+
+    #my-tv-app .tv-live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(225, 29, 72, 0.18);
+      border: 1px solid rgba(225, 29, 72, 0.4);
+      font-size: 13px;
+      font-weight: bold;
+      color: #ff4d6d;
+    }
+
+    #my-tv-app .tv-live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ff435f;
+      box-shadow: 0 0 8px #ff435f;
+      animation: tvPulse 1.4s infinite;
+    }
+
+    @keyframes tvPulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.3; transform: scale(0.8); }
+    }
+
+    /* شاشة البث الحاوية */
+    #my-tv-app .tv-screen {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000000;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--tv-border);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+      isolation: isolate;
+      transition: transform 0.3s ease;
+    }
+
+    #my-tv-app .tv-screen:fullscreen {
+      border-radius: 0;
+      border: none;
+    }
+
+    /* تدوير الشاشة عبر CSS بدون إيقاف الفيديو */
+    #my-tv-app .tv-screen.tv-rotated {
+      transform: rotate(90deg);
+      max-height: 80vh;
+    }
+
+    /* مشغلات الفيديو المتزامنة - تبديل فائق السرعة */
+    #my-tv-app .tv-screen video {
+      position: absolute !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      max-width: none !important;
+      max-height: none !important;
+      object-fit: cover !important;
+      opacity: 0;
+      z-index: 1;
+      /* تم تقليل وقت التلاشي لـ 0.15s لتبديل سريع ولحظي */
+      transition: opacity 0.15s linear;
+      pointer-events: none;
+      background: #000;
+    }
+
+    #my-tv-app .tv-screen video.tv-active {
+      opacity: 1;
+      z-index: 2;
+      pointer-events: auto;
+    }
+
+    /* شعار القناة */
+    #my-tv-app .tv-logo {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      direction: ltr;
+      padding: 6px 12px;
+      background: var(--tv-card);
+      border: 1px solid var(--tv-border);
+      border-radius: 8px;
+      backdrop-filter: blur(6px);
+      pointer-events: none;
+    }
+
+    #my-tv-app .tv-logo img {
+      width: 32px !important;
+      height: 32px !important;
+      border-radius: 6px;
+      object-fit: contain;
+      display: block;
+    }
+
+    #my-tv-app .tv-logo-text strong {
+      display: block;
+      font-size: 13px;
+      color: #fff;
+    }
+
+    #my-tv-app .tv-logo-text span {
+      font-size: 9px;
+      color: #94a3b8;
+      letter-spacing: 1px;
+    }
+
+    /* اسم البرنامج */
+    #my-tv-app .tv-program {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      z-index: 5;
+      padding: 6px 12px;
+      background: var(--tv-card);
+      border: 1px solid var(--tv-border);
+      border-radius: 8px;
+      font-size: 12px;
+      color: #ffffff;
+      backdrop-filter: blur(6px);
+      pointer-events: none;
+    }
+
+    #my-tv-app .tv-program span {
+      color: var(--tv-gold);
+      font-weight: bold;
+      margin-left: 4px;
+    }
+
+    /* طبقة تفعيل الصوت للمرة الأولى */
+    #my-tv-app .tv-unmute-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      background: rgba(0, 0, 0, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    #my-tv-app .tv-unmute-layer.tv-hidden {
+      display: none !important;
+    }
+
+    #my-tv-app .tv-unmute-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 22px;
+      border-radius: 999px;
+      background: var(--tv-accent);
+      color: #ffffff;
+      border: none;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 4px 18px rgba(225, 29, 72, 0.5);
+    }
+
+    /* شريط الأخبار المتحرك اللانهائي */
+    #my-tv-app .tv-ticker-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 6;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      background: rgba(7, 10, 18, 0.95);
+      border-top: 1px solid var(--tv-border);
+      direction: rtl;
+      overflow: hidden;
+    }
+
+    #my-tv-app .tv-ticker-title {
+      flex-shrink: 0;
+      height: 100%;
+      background: var(--tv-accent);
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      z-index: 2;
+    }
+
+    #my-tv-app .tv-ticker-container {
+      flex: 1;
+      height: 100%;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    #my-tv-app .tv-ticker-content {
+      display: flex;
+      flex-shrink: 0;
+      align-items: center;
+      white-space: nowrap;
+      animation: tickerLoop 25s linear infinite;
+    }
+
+    #my-tv-app .tv-ticker-container:hover .tv-ticker-content {
+      animation-play-state: paused;
+    }
+
+    #my-tv-app .tv-ticker-item {
+      display: inline-flex;
+      align-items: center;
+      font-size: 13px;
+      color: #f1f5f9;
+      padding: 0 35px;
+    }
+
+    #my-tv-app .tv-ticker-item::before {
+      content: "◆";
+      margin-left: 10px;
+      color: var(--tv-gold);
+      font-size: 10px;
+    }
+
+    @keyframes tickerLoop {
+      0% {
+        transform: translate3d(0, 0, 0);
+      }
+      100% {
+        transform: translate3d(100%, 0, 0);
+      }
+    }
+
+    /* أزرار التحكم السفلية المستقرة */
+    #my-tv-app .tv-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    #my-tv-app .tv-btn-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    #my-tv-app .tv-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 14px;
+      background: #111827;
+      color: #ffffff;
+      border: 1px solid var(--tv-border);
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    #my-tv-app .tv-btn:hover {
+      background: #1f2937;
+    }
+
+    #my-tv-app .tv-btn:active {
+      transform: scale(0.97);
+    }
+
+    #my-tv-app .tv-btn svg {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+      pointer-events: none;
+    }
+
+    @media (max-width: 600px) {
+      #my-tv-app .tv-ticker-title { padding: 0 10px; font-size: 12px; }
+      #my-tv-app .tv-btn span { display: none; }
+      #my-tv-app .tv-btn { padding: 9px 12px; }
+    }
+  </style>
+
+  <!-- رأس البث -->
+  <div class="tv-header">
+    <div class="tv-live-badge"><span class="tv-live-dot"></span> بث مباشر متزامن (مخزن 30 ثانية)</div>
+  </div>
+
+  <!-- شاشة المشغل -->
+  <div class="tv-screen" id="appTvScreen">
+    <video id="appVidA" class="tv-active" playsinline webkit-playsinline preload="auto"></video>
+    <video id="appVidB" playsinline webkit-playsinline preload="auto"></video>
+
+    <!-- شاشة طلب تفعيل الصوت -->
+    <div class="tv-unmute-layer" id="appUnmuteLayer">
+      <button class="tv-unmute-btn" id="appUnmuteBtn" type="button">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+        انقر لتشغيل الصوت
+      </button>
+    </div>
+
+    <!-- الشعار -->
+    <div class="tv-logo">
+      <img src="https://via.placeholder.com/64/e11d48/ffffff?text=TV" alt="Logo">
+      <div class="tv-logo-text">
+        <strong>قناتي</strong>
+        <span>LIVE TV</span>
+      </div>
+    </div>
+
+    <!-- البرنامج -->
+    <div class="tv-program"><span>الآن:</span> بث متواصل دون توقف</div>
+
+    <!-- شريط الأخبار اللانهائي -->
+    <div class="tv-ticker-bar">
+      <div class="tv-ticker-title">عاجل</div>
+      <div class="tv-ticker-container">
+        <div class="tv-ticker-content">
+          <span class="tv-ticker-item">أهلاً بكم في البث المباشر المتزامن على مدار الساعة</span>
+          <span class="tv-ticker-item">تبديل فوري وسريع بين الفيديوهات دون أي انقطاع أو شاشة سوداء</span>
+          <span class="tv-ticker-item">التحكم بالصوت وتدوير وتكبير الشاشة مستقر تماماً دون إيقاف البث</span>
+        </div>
+        <div class="tv-ticker-content" aria-hidden="true">
+          <span class="tv-ticker-item">أهلاً بكم في البث المباشر المتزامن على مدار الساعة</span>
+          <span class="tv-ticker-item">تبديل فوري وسريع بين الفيديوهات دون أي انقطاع أو شاشة سوداء</span>
+          <span class="tv-ticker-item">التحكم بالصوت وتدوير وتكبير الشاشة مستقر تماماً دون إيقاف البث</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- الأزرار السفلية المستقلة -->
+  <div class="tv-controls">
+    <div class="tv-btn-group">
+      <!-- زر الصوت -->
+      <button class="tv-btn" id="appSoundBtn" type="button">
+        <svg id="appSoundIcon" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+        <span id="appSoundTxt">تشغيل الصوت</span>
+      </button>
+
+      <!-- زر إعادة المزامنة -->
+      <button class="tv-btn" id="appSyncBtn" type="button" title="إعادة ضبط المزامنة فوراً">
+        <svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+        <span>مزامنة</span>
+      </button>
+    </div>
+
+    <div class="tv-btn-group">
+      <!-- زر تدوير الشاشة بدون إيقاف الفيديو -->
+      <button class="tv-btn" id="appRotateBtn" type="button" title="تدوير الشاشة">
+        <svg viewBox="0 0 24 24"><path d="M16.48 2.52c3.27 1.55 5.61 4.72 5.97 8.48h2.05c-.39-4.84-3.52-8.91-7.79-10.68l-.23 2.2zm-8.96 18.96c-3.27-1.55-5.61-4.72-5.97-8.48H-.5c.39 4.84 3.52 8.91 7.79 10.68l.23-2.2zM21 12c0 4.97-4.03 9-9 9a8.995 8.995 0 0 1-8.24-5.33l1.87-.8c1.13 2.64 3.86 4.13 6.37 4.13 4.41 0 8-3.59 8-8s-3.59-8-8-8c-2.12 0-4.11.81-5.63 2.27l2.13 2.13H1v-6l2.36 2.36C5.55 1.56 8.65.5 12 .5c4.97 0 9 4.03 9 9z"/></svg>
+        <span>تدوير</span>
+      </button>
+
+      <!-- زر نافذة مصغرة -->
+      <button class="tv-btn" id="appPipBtn" type="button" title="صورة داخل صورة">
+        <svg viewBox="0 0 24 24"><path d="M19 11h-8v6h8v-6zm4 8V4.98C23 3.88 22.1 3 21 3H3c-1.1 0-2 .88-2 1.98V19c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zm-2 .02H3V4.97h18v14.05z"/></svg>
+        <span>نافذة</span>
+      </button>
+
+      <!-- زر ملء الشاشة -->
+      <button class="tv-btn" id="appFullBtn" type="button" title="ملء الشاشة">
+        <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+        <span>ملء الشاشة</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      // قائمة الفيديوهات بالثواني الدقيقة
+      const playlist = [
+        { src: "https://video.twimg.com/amplify_video/2114594951476707328/vid/avc1/1920x1080/-4rvb6af4ekgloEL.mp4", duration: 596 },
+        { src: "https://video.twimg.com/amplify_video/2114594951476707328/vid/avc1/1920x1080/-4rvb6af4ekgloEL.mp4", duration: 653 }
+      ];
+
+      // تأخير 30 ثانية لتوفير مخزن أمان يمنع التقطيع
+      const DELAY_OFFSET = 30;
+
+      const vA = document.getElementById("appVidA");
+      const vB = document.getElementById("appVidB");
+      const players = [vA, vB];
+      const screenEl = document.getElementById("appTvScreen");
+      const unmuteLayer = document.getElementById("appUnmuteLayer");
+      const unmuteBtn = document.getElementById("appUnmuteBtn");
+      const soundBtn = document.getElementById("appSoundBtn");
+      const soundTxt = document.getElementById("appSoundTxt");
+      const syncBtn = document.getElementById("appSyncBtn");
+      const rotateBtn = document.getElementById("appRotateBtn");
+      const pipBtn = document.getElementById("appPipBtn");
+      const fullBtn = document.getElementById("appFullBtn");
+
+      let activeIdx = 0;
+      let isMuted = true;
+      let nextTimer = null;
+      let prewarmTimer = null;
+      let isCssRotated = false;
+      const totalDuration = playlist.reduce((a, b) => a + b.duration, 0);
+
+      // دالة حماية تضمن بقاء الفيديو يعمل فوراً في حال حاول المتصفح إيقافه
+      function ensurePlaying() {
+        const cur = players[activeIdx];
+        if (cur && cur.paused) {
+          cur.play().catch(() => {});
+        }
+      }
+
+      // حساب التزامن بدقة مع فارق 30 ثانية
+      function getSync() {
+        const now = (Date.now() / 1000) - DELAY_OFFSET;
+        let cycle = now % totalDuration;
+        if (cycle < 0) cycle += totalDuration;
+
+        let acc = 0;
+        for (let i = 0; i < playlist.length; i++) {
+          if (cycle < acc + playlist[i].duration) {
+            return {
+              index: i,
+              time: cycle - acc,
+              remaining: (acc + playlist[i].duration) - cycle
+            };
+          }
+          acc += playlist[i].duration;
+        }
+        return { index: 0, time: 0, remaining: playlist[0].duration };
+      }
+
+      // تحميل الفيديو وضبطه
+      function prepareVideo(player, src, targetTime) {
+        return new Promise((resolve) => {
+          if (player.src !== src) {
+            player.src = src;
+            player.load();
+          }
+
+          const onMeta = () => {
+            player.currentTime = Math.max(0, targetTime);
+            player.muted = isMuted;
+            player.removeEventListener("loadedmetadata", onMeta);
+            resolve();
+          };
+
+          if (player.readyState >= 1) {
+            onMeta();
+          } else {
+            player.addEventListener("loadedmetadata", onMeta);
+          }
+        });
+      }
+
+      // بدء التشغيل
+      async function runStream() {
+        clearTimeout(nextTimer);
+        clearTimeout(prewarmTimer);
+
+        const sync = getSync();
+        const cur = players[activeIdx];
+        const nxt = players[1 - activeIdx];
+
+        await prepareVideo(cur, playlist[sync.index].src, sync.time);
+        try {
+          await cur.play();
+        } catch(e) {
+          cur.muted = true;
+          cur.play().catch(() => {});
+        }
+
+        cur.classList.add("tv-active");
+        nxt.classList.remove("tv-active");
+
+        scheduleNextSeamlessSwitch(sync);
+      }
+
+      // جدولة النقلة الفورية فائقة السرعة
+      function scheduleNextSeamlessSwitch(sync) {
+        clearTimeout(nextTimer);
+        clearTimeout(prewarmTimer);
+
+        const remainingMs = sync.remaining * 1000;
+        const nextVideoIdx = (sync.index + 1) % playlist.length;
+        const nxt = players[1 - activeIdx];
+
+        // 1. تجهيز الفيديو القادم في الخلفية قبل موعده
+        nxt.src = playlist[nextVideoIdx].src;
+        nxt.preload = "auto";
+
+        // 2. التشغيل السري الصامت في الخلفية قبل ثانية واحدة من النقلة (Hot-Warming)
+        const prewarmLeadTime = 1000; // 1 ثانية
+        if (remainingMs > prewarmLeadTime) {
+          prewarmTimer = setTimeout(() => {
+            nxt.currentTime = 0;
+            nxt.muted = isMuted;
+            nxt.play().catch(() => {});
+          }, remainingMs - prewarmLeadTime);
+        }
+
+        // 3. التبديل اللحظي عند اكتمال الوقت بالمللي ثانية
+        nextTimer = setTimeout(async () => {
+          const freshSync = getSync();
+          const oldPlayer = players[activeIdx];
+          const newPlayer = players[1 - activeIdx];
+
+          // ضبط وقت الفيديو الجديد بدقة
+          newPlayer.currentTime = freshSync.time;
+          newPlayer.muted = isMuted;
+          newPlayer.play().catch(() => {});
+
+          // تبديل فوري في أجزاء من الثانية
+          newPlayer.classList.add("tv-active");
+          oldPlayer.classList.remove("tv-active");
+
+          activeIdx = 1 - activeIdx;
+
+          // إيقاف السابق وتفريغه بعد إتمام التبديل
+          setTimeout(() => {
+            oldPlayer.pause();
+          }, 300);
+
+          scheduleNextSeamlessSwitch(freshSync);
+        }, remainingMs);
+      }
+
+      // تصحيح الانزلاق كل 5 ثوانٍ بصمت
+      setInterval(() => {
+        const cur = players[activeIdx];
+        if (!cur || cur.paused) return;
+        const sync = getSync();
+        if (Math.abs(cur.currentTime - sync.time) > 2) {
+          cur.currentTime = sync.time;
+        }
+      }, 5000);
+
+      /* ========================================================
+         معالجة الأزرار دون التأثير على الفيديو إطلاقاً
+         ======================================================== */
+
+      // تفعيل الصوت
+      function applySound(unmute) {
+        isMuted = !unmute;
+        players.forEach(p => p.muted = isMuted);
+        soundTxt.textContent = isMuted ? "تشغيل الصوت" : "كتم الصوت";
+        if (!isMuted) unmuteLayer.classList.add("tv-hidden");
+        ensurePlaying();
+      }
+
+      unmuteBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        applySound(true);
+      });
+
+      unmuteLayer.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        applySound(true);
+      });
+
+      soundBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        applySound(isMuted);
+      });
+
+      // زر إعادة المزامنة اليدوية
+      syncBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        runStream();
+      });
+
+      // زر تدوير الشاشة بدون إيقاف الفيديو
+      rotateBtn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // محاولة استخدام مستشعر النظام إن كان مدعوماً في الجوال
+        if (screen.orientation && screen.orientation.lock) {
+          try {
+            if (screen.orientation.type.startsWith("portrait")) {
+              await screen.orientation.lock("landscape");
+            } else {
+              await screen.orientation.unlock();
+            }
+            ensurePlaying();
+            return;
+          } catch (err) {}
+        }
+
+        // في حال عدم دعمه (أو على الكمبيوتر)، يتم التدوير بـ CSS فوري
+        isCssRotated = !isCssRotated;
+        if (isCssRotated) {
+          screenEl.classList.add("tv-rotated");
+        } else {
+          screenEl.classList.remove("tv-rotated");
+        }
+        ensurePlaying();
+      });
+
+      // زر صورة داخل صورة (PiP) دون إيقاف
+      pipBtn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const cur = players[activeIdx];
+        try {
+          if (document.pictureInPictureElement) {
+            await document.exitPictureInPicture();
+          } else if (cur.requestPictureInPicture) {
+            await cur.requestPictureInPicture();
+          }
+        } catch(err) {}
+        ensurePlaying();
+      });
+
+      // زر ملء الشاشة المستقر
+      fullBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+          if (screenEl.requestFullscreen) screenEl.requestFullscreen();
+          else if (screenEl.webkitRequestFullscreen) screenEl.webkitRequestFullscreen();
+        } else {
+          if (document.exitFullscreen) document.exitFullscreen();
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        }
+        setTimeout(ensurePlaying, 100);
+      });
+
+      // حماية إضافية ضد إيقاف المتصفح للفيديو عند الخروج والدخول من ملء الشاشة
+      document.addEventListener("fullscreenchange", ensurePlaying);
+      document.addEventListener("webkitfullscreenchange", ensurePlaying);
+      window.addEventListener("orientationchange", () => setTimeout(ensurePlaying, 200));
+
+      // تشغيل فوري للبث
+      runStream();
+    })();
+  </script>
+</div>
+<!-- نهاية مشغل البث -->
