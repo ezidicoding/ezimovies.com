@@ -1,488 +1,371 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>مشغل الستلايت السينمائي</title>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
-<!-- مكتبة HLS لدعم قنوات m3u8 و m3u -->
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body, html { width: 100%; height: 100%; background: #000; color: #fff; font-family: 'Cairo', sans-serif; overflow: hidden; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EZIDITV - Smart IPTV Player</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- VideoJS Player Professional -->
+    <link href="https://vjs.zencdn.net/8.3.0/video-js.css" rel="stylesheet" />
+    <script src="https://vjs.zencdn.net/8.3.0/video.min.js"></script>
 
-.tv-box { display: flex; width: 100vw; height: 100vh; background: #0b0b0b; }
-
-/* قائمة القنوات الجانبية */
-.channels-panel {
-  width: 280px;
-  background: #141414;
-  border-left: 1px solid #222;
-  display: flex;
-  flex-direction: column;
-  transition: width 0.2s ease;
-  z-index: 30;
-}
-.channels-panel.hidden { width: 0; overflow: hidden; }
-
-.panel-header {
-  padding: 14px;
-  background: #1c1c1c;
-  font-weight: 700;
-  font-size: 0.95rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid #282828;
-}
-
-.search-input {
-  margin: 10px;
-  padding: 8px 12px;
-  background: #090909;
-  border: 1px solid #333;
-  border-radius: 4px;
-  color: #fff;
-  font-family: inherit;
-  font-size: 0.85rem;
-  width: calc(100% - 20px);
-  outline: none;
-}
-.search-input:focus { border-color: #e50914; }
-
-.channels-list { flex: 1; overflow-y: auto; }
-.channels-list::-webkit-scrollbar { width: 4px; }
-.channels-list::-webkit-scrollbar-thumb { background: #333; }
-
-.channel-item {
-  display: flex;
-  gap: 10px;
-  padding: 8px 12px;
-  cursor: pointer;
-  border-bottom: 1px solid #1a1a1a;
-  align-items: center;
-}
-.channel-item:hover { background: #1f1f1f; }
-.channel-item.active { background: #e50914; color: #fff; }
-
-.channel-item img {
-  width: 42px;
-  height: 60px;
-  object-fit: cover;
-  border-radius: 3px;
-  background: #222;
-  flex-shrink: 0;
-}
-.channel-info { flex: 1; min-width: 0; }
-.channel-info h4 { font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.channel-info span { font-size: 0.75rem; opacity: 0.7; }
-
-/* شاشة العرض الحاوية للفيديو */
-.screen-panel {
-  flex: 1;
-  position: relative;
-  background: #000;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-/* حاوية الفيديو لضبط إطار الترجمة داخله بدقة */
-.video-wrapper {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-video {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #000;
-}
-
-/* طبقة الترجمة تظهر على الفيديو نفسه (أسفل إطار الفيديو بدقة) */
-.subtitles-layer {
-  position: absolute;
-  bottom: 8%;
-  left: 10%;
-  right: 10%;
-  text-align: center;
-  font-family: 'Cairo', sans-serif;
-  font-size: clamp(15px, 2.2vw, 28px);
-  font-weight: 700;
-  line-height: 1.4;
-  color: #fff;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.8);
-  pointer-events: none;
-  z-index: 10;
-}
-.subtitles-layer span {
-  display: inline-block;
-  background: rgba(0, 0, 0, 0.75);
-  padding: 4px 14px;
-  border-radius: 4px;
-  max-width: 85%;
-  word-wrap: break-word;
-  white-space: pre-line;
-}
-
-/* عناصر التحكم (الشريط العلوي والسفلي) - افتراضياً مخفية وتظهر عند إضافة كلاس show-ui */
-.top-bar, .bottom-bar {
-  position: absolute;
-  left: 0; right: 0;
-  z-index: 20;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.3s ease, visibility 0.3s ease;
-}
-
-.top-bar {
-  top: 0;
-  padding: 12px 20px;
-  background: linear-gradient(rgba(0,0,0,0.85), transparent);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.bottom-bar {
-  bottom: 0;
-  padding: 10px 15px 15px;
-  background: linear-gradient(transparent, rgba(0,0,0,0.9));
-}
-
-/* إظهار الواجهة عند تفاعل المستخدم أو إيقاف الفيديو */
-.screen-panel.show-ui .top-bar,
-.screen-panel.show-ui .bottom-bar {
-  opacity: 1;
-  visibility: visible;
-}
-
-.progress-track {
-  height: 4px;
-  background: rgba(255,255,255,0.2);
-  border-radius: 2px;
-  cursor: pointer;
-  margin-bottom: 8px;
-  direction: ltr;
-}
-.progress-bar { height: 100%; background: #e50914; width: 0%; border-radius: 2px; }
-
-.controls-flex { display: flex; align-items: center; gap: 8px; }
-
-.flat-btn {
-  background: transparent;
-  border: none;
-  color: #fff;
-  width: 36px; height: 36px;
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.9rem;
-}
-.flat-btn:hover { background: rgba(255,255,255,0.1); }
-.flat-btn svg { width: 18px; height: 18px; fill: currentColor; }
-
-.time-text { font-size: 0.8rem; opacity: 0.8; min-width: 85px; text-align: center; direction: ltr; }
-
-.spinner {
-  position: absolute; top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: 36px; height: 36px;
-  border: 3px solid rgba(255,255,255,0.1);
-  border-top-color: #e50914;
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-  display: none;
-  z-index: 25;
-}
-@keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
-
-@media (max-width: 700px) {
-  .channels-panel { position: absolute; right: 0; top: 0; bottom: 0; }
-  .channels-panel.hidden { transform: translateX(100%); width: 280px; }
-}
-</style>
+    <style>
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+        ::-webkit-scrollbar-thumb { background: #f59e0b; border-radius: 10px; }
+        .glass-panel { background: rgba(15, 23, 42, 0.92); backdrop-filter: blur(20px); }
+        .tv-focusable:focus, .tv-focusable:hover {
+            outline: none;
+            border-color: #f59e0b !important;
+            transform: scale(1.02);
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+        }
+    </style>
 </head>
-<body>
+<body class="bg-black text-white min-h-screen font-sans antialiased selection:bg-amber-500 overflow-x-hidden">
 
-<div class="tv-box">
-  <!-- قائمة القنوات -->
-  <aside class="channels-panel" id="channelsPanel">
-    <div class="panel-header">
-      <span>قنوات الستلايت</span>
-      <button class="flat-btn" id="togglePanelBtn">✕</button>
+    <!-- ==================== 1. شاشة تسجيل الدخول وإدخال السيرفر ==================== -->
+    <div id="loginSection" class="min-h-screen flex items-center justify-center p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-900/20 via-gray-950 to-black">
+        <div class="w-full max-w-md glass-panel border border-amber-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl relative">
+            
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-tr from-amber-500 to-yellow-600 text-gray-950 rounded-2xl mb-3 shadow-lg shadow-amber-500/20 font-black text-2xl">
+                    <i class="fa-solid fa-satellite-dish"></i>
+                </div>
+                <h1 class="text-2xl font-black tracking-wider text-white">EZIDITV Satellite</h1>
+                <p class="text-gray-400 text-xs mt-1">الرجاء إدخال بيانات اشتراكك للمتابعة</p>
+            </div>
+
+            <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-3.5">
+                <div>
+                    <label class="block text-gray-300 text-xs font-semibold mb-1">اسم القائمة (اختياري)</label>
+                    <input type="text" id="playlistName" placeholder="My Playlist" 
+                        class="w-full bg-gray-900 border border-gray-700/80 text-white rounded-xl py-2.5 px-3 text-xs focus:border-amber-500 outline-none tv-focusable">
+                </div>
+
+                <div>
+                    <label class="block text-gray-300 text-xs font-semibold mb-1">اسم المستخدم (UserName)</label>
+                    <input type="text" id="username" required placeholder="UserName" 
+                        class="w-full bg-gray-900 border border-gray-700/80 text-white rounded-xl py-2.5 px-3 text-xs focus:border-amber-500 outline-none tv-focusable">
+                </div>
+
+                <div>
+                    <label class="block text-gray-300 text-xs font-semibold mb-1">كلمة المرور (PassWord)</label>
+                    <input type="password" id="password" required placeholder="PassWord" 
+                        class="w-full bg-gray-900 border border-gray-700/80 text-white rounded-xl py-2.5 px-3 text-xs focus:border-amber-500 outline-none tv-focusable">
+                </div>
+
+                <div>
+                    <label class="block text-gray-300 text-xs font-semibold mb-1">رابط السيرفر (Server: http://example.com:8080)</label>
+                    <input type="text" id="hostUrl" required placeholder="http://yourserver.com:8080" 
+                        class="w-full bg-gray-900 border border-gray-700/80 text-white rounded-xl py-2.5 px-3 text-xs focus:border-amber-500 outline-none tv-focusable">
+                </div>
+
+                <button type="submit" 
+                    class="w-full bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-gray-950 font-extrabold py-3 rounded-xl shadow-lg shadow-amber-500/20 transition text-xs mt-2 flex items-center justify-center gap-2 tv-focusable">
+                    <i class="fa-solid fa-play"></i> اتصال بالستلايت
+                </button>
+            </form>
+        </div>
     </div>
-    <input type="text" class="search-input" id="searchBox" placeholder="بحث سريع...">
-    <div class="channels-list" id="channelsList"></div>
-  </aside>
 
-  <!-- شاشة العرض -->
-  <div class="screen-panel show-ui" id="screenPanel">
-    <div class="video-wrapper">
-      <video id="videoPlayer" playsinline crossorigin="anonymous"></video>
-      <div class="subtitles-layer" id="subtitlesLayer"></div>
+    <!-- ==================== 2. الداشبورد وعرض القنوات ==================== -->
+    <div id="dashboardSection" class="hidden min-h-screen flex flex-col bg-gray-950">
+        
+        <!-- الشريط العلوي -->
+        <header class="glass-panel border-b border-gray-800 px-4 lg:px-8 py-3 flex flex-wrap items-center justify-between sticky top-0 z-50 gap-3">
+            <div class="flex items-center space-x-3 space-x-reverse">
+                <div class="w-9 h-9 bg-amber-500 rounded-xl flex items-center justify-center font-black text-gray-950 shadow-md" id="headerPlaylistInitial">E</div>
+                <div>
+                    <h2 class="font-black text-lg tracking-wider" id="headerPlaylistTitle">EZIDITV</h2>
+                    <span class="text-[10px] text-emerald-400 flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> متصل بالسيرفر
+                    </span>
+                </div>
+            </div>
+
+            <!-- أقسام البث -->
+            <nav class="flex items-center gap-1.5 overflow-x-auto py-1 max-w-full custom-scrollbar">
+                <button onclick="switchCategory('live')" id="tab-live" class="px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition tv-focusable bg-amber-500 text-gray-950">
+                    <i class="fa-solid fa-tv ml-1"></i> البث المباشر (Live)
+                </button>
+                <button onclick="switchCategory('vod')" id="tab-vod" class="px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition tv-focusable text-gray-400 hover:text-white">
+                    <i class="fa-solid fa-film text-blue-400 ml-1"></i> الأفلام (Movies)
+                </button>
+                <button onclick="switchCategory('series')" id="tab-series" class="px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition tv-focusable text-gray-400 hover:text-white">
+                    <i class="fa-solid fa-clapperboard text-purple-400 ml-1"></i> المسلسلات (Series)
+                </button>
+            </nav>
+
+            <div class="flex items-center gap-2">
+                <button onclick="showLoginSettings()" title="تعديل بيانات السيرفر" class="px-3 py-1.5 bg-amber-500/20 text-amber-400 hover:bg-amber-500 hover:text-gray-950 rounded-xl text-xs font-bold transition tv-focusable">
+                    <i class="fa-solid fa-gear"></i> الإعدادات
+                </button>
+                <button onclick="logout()" title="تسجيل الخروج" class="px-3 py-1.5 bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white rounded-xl text-xs font-bold transition tv-focusable">
+                    <i class="fa-solid fa-power-off"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- المحتوى الرئيسي -->
+        <main class="flex-1 p-3 sm:p-5 grid grid-cols-1 lg:grid-cols-12 gap-5 max-w-[1920px] mx-auto w-full">
+            
+            <!-- مشغل الفيديو -->
+            <div class="lg:col-span-8 flex flex-col space-y-3">
+                <div class="bg-black rounded-3xl overflow-hidden border border-amber-500/30 shadow-2xl relative aspect-video">
+                    <video id="mainPlayer" class="video-js vjs-default-skin vjs-big-play-centered w-full h-full" controls preload="auto">
+                    </video>
+                </div>
+
+                <div class="glass-panel border border-gray-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h3 id="currentStreamTitle" class="text-base font-bold">اختر قناة أو فيلماً للمشاهدة</h3>
+                        <p id="currentStreamCategory" class="text-xs text-gray-400 mt-0.5">EZIDITV Satellite Receiver</p>
+                    </div>
+                    
+                    <div class="flex items-center gap-2">
+                        <button onclick="toggleFullscreen()" class="px-3 py-1.5 bg-amber-500 text-gray-950 hover:bg-amber-400 rounded-lg text-xs font-bold transition tv-focusable"><i class="fa-solid fa-expand"></i> ملء الشاشة</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- قائمة القنوات والبحث (10 عناصر في الصفحة) -->
+            <div class="lg:col-span-4 glass-panel border border-gray-800 rounded-3xl p-4 flex flex-col h-[580px] lg:h-auto justify-between">
+                <div>
+                    <div class="mb-3">
+                        <input type="text" id="searchInput" oninput="filterChannels()" placeholder="بحث سريع في القنوات..." 
+                            class="w-full bg-gray-900 border border-gray-700/80 text-white rounded-xl py-2 px-3 text-xs focus:border-amber-500 outline-none tv-focusable">
+                    </div>
+
+                    <div id="channelsList" class="overflow-y-auto space-y-2 pr-1 custom-scrollbar max-h-[420px]"></div>
+                </div>
+
+                <!-- أزرار التنقل بين الصفحات -->
+                <div id="paginationControls" class="hidden items-center justify-between pt-3 border-t border-gray-800 mt-2">
+                    <button onclick="changePage(-1)" id="prevPageBtn" class="px-3 py-1.5 bg-amber-900/40 hover:bg-amber-500 hover:text-gray-950 text-xs rounded-xl transition font-bold tv-focusable disabled:opacity-40">
+                        <i class="fa-solid fa-chevron-right ml-1"></i> السابق
+                    </button>
+                    <span id="pageIndicator" class="text-xs text-amber-300 font-bold">صفحة 1</span>
+                    <button onclick="changePage(1)" id="nextPageBtn" class="px-3 py-1.5 bg-amber-900/40 hover:bg-amber-500 hover:text-gray-950 text-xs rounded-xl transition font-bold tv-focusable disabled:opacity-40">
+                        التالي <i class="fa-solid fa-chevron-left mr-1"></i>
+                    </button>
+                </div>
+            </div>
+        </main>
     </div>
-    
-    <div class="spinner" id="loadingSpinner"></div>
 
-    <div class="top-bar">
-      <span id="nowPlayingTitle" style="font-weight:600; font-size:0.95rem;">--</span>
-      <button class="flat-btn" id="openPanelBtn">☰ القنوات</button>
-    </div>
+    <!-- Script التشغيل والاتصال بالسيرفر -->
+    <script>
+        let player = videojs('mainPlayer');
+        let currentAccount = { host: '', username: '', password: '', playlistName: '' };
+        let allStreams = [];
+        let filteredStreams = [];
+        let currentCategory = 'live';
+        let currentPage = 1;
+        const itemsPerPage = 10; 
 
-    <div class="bottom-bar">
-      <div class="progress-track" id="progressTrack">
-        <div class="progress-bar" id="progressBar"></div>
-      </div>
-      <div class="controls-flex">
-        <button class="flat-btn" id="prevBtn" title="السابق">◀</button>
-        <button class="flat-btn" id="playPauseBtn">
-          <svg id="playSvg" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-          <svg id="pauseSvg" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-        </button>
-        <button class="flat-btn" id="nextBtn" title="التالي">▶</button>
-        <div class="time-text" id="timeText">0:00 / 0:00</div>
-        <div style="flex:1"></div>
-        <button class="flat-btn" id="ccBtn" title="الترجمة" style="font-weight:700; font-size:0.8rem;">CC</button>
-        <button class="flat-btn" id="fsBtn" title="ملء الشاشة">⛶</button>
-      </div>
-    </div>
-  </div>
-</div>
+        window.onload = function() {
+            let h = localStorage.getItem('ez_host');
+            let u = localStorage.getItem('ez_user');
+            let p = localStorage.getItem('ez_pass');
+            let n = localStorage.getItem('ez_name');
 
-<script>
-let playlist = [];
-let currentIndex = 0;
-let subsEnabled = true;
-let hlsInstance = null;
-let hideTimer = null;
+            // إذا لم يتم إدخال البيانات مسبقاً، نظهر شاشة تسجيل الدخول فقط
+            if (!h || !u || !p) {
+                document.getElementById('loginSection').classList.remove('hidden');
+                document.getElementById('dashboardSection').classList.add('hidden');
+            } else {
+                currentAccount = { host: h, username: u, password: p, playlistName: n || 'EZIDITV' };
+                showDashboard();
+            }
+        };
 
-const video = document.getElementById('videoPlayer');
-const channelsList = document.getElementById('channelsList');
-const searchBox = document.getElementById('searchBox');
-const channelsPanel = document.getElementById('channelsPanel');
-const screenPanel = document.getElementById('screenPanel');
-const loadingSpinner = document.getElementById('loadingSpinner');
-const nowPlayingTitle = document.getElementById('nowPlayingTitle');
-const progressTrack = document.getElementById('progressTrack');
-const progressBar = document.getElementById('progressBar');
-const timeText = document.getElementById('timeText');
-const playSvg = document.getElementById('playSvg');
-const pauseSvg = document.getElementById('pauseSvg');
-const subtitlesLayer = document.getElementById('subtitlesLayer');
+        async function handleLogin(e) {
+            e.preventDefault();
+            let host = document.getElementById('hostUrl').value.trim();
+            const user = document.getElementById('username').value.trim();
+            const pass = document.getElementById('password').value.trim();
+            const name = document.getElementById('playlistName').value.trim() || 'EZIDITV';
+            
+            if (host.endsWith('/')) host = host.slice(0, -1);
 
-function renderSubtitles() {
-  if (!subsEnabled) {
-    subtitlesLayer.innerHTML = '';
-    return;
-  }
-  const tracks = video.textTracks;
-  if (!tracks.length) return;
-  let text = '';
-  const activeCues = tracks[0].activeCues;
-  if (activeCues) {
-    for (let i = 0; i < activeCues.length; i++) {
-      text += (text ? '\n' : '') + activeCues[i].text;
-    }
-  }
-  subtitlesLayer.innerHTML = text ? `<span>${text.replace(/\n/g, '<br>')}</span>` : '';
-}
+            localStorage.setItem('ez_host', host);
+            localStorage.setItem('ez_user', user);
+            localStorage.setItem('ez_pass', pass);
+            localStorage.setItem('ez_name', name);
 
-async function loadData() {
-  try {
-    const res = await fetch('datamov.json');
-    playlist = await res.json();
-    renderChannels();
-    if (playlist.length) playChannel(0);
-  } catch (err) {
-    channelsList.innerHTML = '<div style="padding:15px; color:#e50914; font-size:0.85rem;">تعذر تحميل datamov.json</div>';
-  }
-}
+            currentAccount = { host, username: user, password: pass, playlistName: name };
+            showDashboard();
+        }
 
-function renderChannels(filter = '') {
-  channelsList.innerHTML = '';
-  playlist.forEach((item, index) => {
-    if (filter && !item.titleAr.includes(filter) && !item.title.toLowerCase().includes(filter.toLowerCase())) return;
-    const div = document.createElement('div');
-    div.className = 'channel-item' + (index === currentIndex ? ' active' : '');
-    div.innerHTML = `
-      <img src="${item.poster}" onerror="this.style.background='#333'">
-      <div class="channel-info">
-        <h4>${item.titleAr}</h4>
-        <span>${item.year}</span>
-      </div>
-    `;
-    div.onclick = () => {
-      playChannel(index);
-      if (window.innerWidth <= 700) channelsPanel.classList.add('hidden');
-    };
-    channelsList.appendChild(div);
-  });
-}
+        function showDashboard() {
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('dashboardSection').classList.remove('hidden');
+            
+            const pName = currentAccount.playlistName || 'EZIDITV';
+            document.getElementById('headerPlaylistTitle').innerText = pName;
+            document.getElementById('headerPlaylistInitial').innerText = pName.charAt(0).toUpperCase();
 
-function convertSrt(srtData) {
-  let text = srtData.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim();
-  if (text.startsWith('WEBVTT')) return text;
-  text = text.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
-  return 'WEBVTT\n\n' + text;
-}
+            switchCategory('live');
+        }
 
-async function loadSubtitlesFile(item) {
-  if (!item.srt || !item.srt.trim()) return;
-  try {
-    const res = await fetch(item.srt);
-    if (!res.ok) return;
-    let content = await res.text();
-    if (item.srt.toLowerCase().includes('.srt') || !content.trim().toUpperCase().startsWith('WEBVTT')) {
-      content = convertSrt(content);
-    }
-    const blob = new Blob([content], { type: 'text/vtt' });
-    const blobUrl = URL.createObjectURL(blob);
+        function showLoginSettings() {
+            document.getElementById('dashboardSection').classList.add('hidden');
+            document.getElementById('loginSection').classList.remove('hidden');
+            
+            document.getElementById('hostUrl').value = currentAccount.host;
+            document.getElementById('username').value = currentAccount.username;
+            document.getElementById('password').value = currentAccount.password;
+            document.getElementById('playlistName').value = currentAccount.playlistName;
+        }
 
-    const track = document.createElement('track');
-    track.kind = 'subtitles';
-    track.srclang = 'ar';
-    track.label = 'Arabic';
-    track.src = blobUrl;
-    video.appendChild(track);
+        function switchCategory(cat) {
+            currentCategory = cat;
+            currentPage = 1; 
+            const tabs = ['live', 'vod', 'series'];
+            
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                if (btn) {
+                    if (t === cat) {
+                        btn.className = "px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition tv-focusable bg-amber-500 text-gray-950";
+                    } else {
+                        btn.className = "px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition tv-focusable text-gray-400 hover:text-white";
+                    }
+                }
+            });
 
-    const setupTrack = () => {
-      if (video.textTracks.length > 0) {
-        video.textTracks[0].mode = 'hidden';
-        video.textTracks[0].oncuechange = renderSubtitles;
-        renderSubtitles();
-      }
-    };
-    track.addEventListener('load', setupTrack);
-    setTimeout(setupTrack, 200);
-  } catch (e) {
-    console.warn('Subtitle load error', e);
-  }
-}
+            loadStreams(cat);
+        }
 
-function playChannel(index) {
-  if (index < 0 || index >= playlist.length) return;
-  currentIndex = index;
-  const item = playlist[index];
-  
-  loadingSpinner.style.display = 'block';
-  video.querySelectorAll('track').forEach(t => t.remove());
-  subtitlesLayer.innerHTML = '';
+        async function loadStreams(category) {
+            const listContainer = document.getElementById('channelsList');
+            listContainer.innerHTML = '<div class="text-center text-amber-400 py-8"><i class="fa-solid fa-circle-notch fa-spin text-xl mb-2"></i><br><span class="text-xs">جاري تحميل القنوات من سيرفرك...</span></div>';
 
-  if (hlsInstance) {
-    hlsInstance.destroy();
-    hlsInstance = null;
-  }
+            let action = 'get_live_streams';
+            if (category === 'vod') action = 'get_vod_streams';
+            if (category === 'series') action = 'get_series';
 
-  const srcUrl = item.src;
+            try {
+                const url = `${currentAccount.host}/player_api.php?username=${currentAccount.username}&password=${currentAccount.password}&action=${action}`;
+                const res = await fetch(url);
+                const data = await res.json();
 
-  if (srcUrl.includes('.m3u8') || srcUrl.includes('.m3u')) {
-    if (Hls.isSupported()) {
-      hlsInstance = new Hls();
-      hlsInstance.loadSource(srcUrl);
-      hlsInstance.attachMedia(video);
-      hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play().catch(() => {});
-      });
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = srcUrl;
-      video.play().catch(() => {});
-    }
-  } else {
-    video.src = srcUrl;
-    video.load();
-    video.play().catch(() => {});
-  }
+                if (Array.isArray(data)) {
+                    allStreams = data;
+                } else {
+                    allStreams = [];
+                }
+            } catch (err) {
+                allStreams = [];
+                listContainer.innerHTML = '<div class="text-center text-red-400 py-8 text-xs">فشل الاتصال بالسيرفر أو تحقق من صحة البيانات الرابط/الخادم</div>';
+                return;
+            }
 
-  nowPlayingTitle.textContent = item.titleAr;
-  renderChannels(searchBox.value);
-  loadSubtitlesFile(item);
-}
+            filteredStreams = allStreams;
+            renderPaginationView();
+        }
 
-function formatTime(sec) {
-  if (!sec || isNaN(sec)) return '0:00';
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
+        function renderPaginationView() {
+            const paginationEl = document.getElementById('paginationControls');
+            
+            if (filteredStreams.length > itemsPerPage) {
+                paginationEl.classList.remove('hidden');
+                paginationEl.classList.add('flex');
+            } else {
+                paginationEl.classList.add('hidden');
+                paginationEl.classList.remove('flex');
+            }
 
-// نظام إخفاء وإظهار الواجهة (بعد 5 ثوانٍ من التشغيل، وعند النقر تظهر)
-function resetHideTimer() {
-  screenPanel.classList.add('show-ui');
-  clearTimeout(hideTimer);
-  
-  if (!video.paused) {
-    hideTimer = setTimeout(() => {
-      screenPanel.classList.remove('show-ui');
-    }, 5000); // 5 ثوانٍ تماماً
-  }
-}
+            const totalPages = Math.ceil(filteredStreams.length / itemsPerPage) || 1;
+            if (currentPage > totalPages) currentPage = totalPages;
+            if (currentPage < 1) currentPage = 1;
 
-screenPanel.onclick = (e) => {
-  // منع إخفاء الواجهة إذا النقر تم على قائمة القنوات الجانبية أو أزرار التحكم
-  resetHideTimer();
-};
+            document.getElementById('pageIndicator').innerText = `صفحة ${currentPage} من ${totalPages}`;
+            document.getElementById('prevPageBtn').disabled = currentPage === 1;
+            document.getElementById('nextPageBtn').disabled = currentPage === totalPages || totalPages === 0;
 
-video.onwaiting = () => loadingSpinner.style.display = 'block';
-video.onplaying = () => {
-  loadingSpinner.style.display = 'none';
-  resetHideTimer(); // يبدأ العد التنازلي لإخفاء الواجهة بعد التشغيل
-};
-video.onerror = () => loadingSpinner.style.display = 'none';
-video.ontimeupdate = () => {
-  timeText.textContent = `${formatTime(video.currentTime)} / ${formatTime(video.duration)}`;
-  if (video.duration) progressBar.style.width = (video.currentTime / video.duration) * 100 + '%';
-  renderSubtitles();
-};
-video.onplay = () => { 
-  playSvg.style.display = 'none'; 
-  pauseSvg.style.display = 'block'; 
-  resetHideTimer();
-};
-video.onpause = () => { 
-  playSvg.style.display = 'block'; 
-  pauseSvg.style.display = 'none'; 
-  screenPanel.classList.add('show-ui'); // إبقاء الواجهة ظاهرة عند الإيقاف المؤقت
-  clearTimeout(hideTimer);
-};
-video.onended = () => { if (currentIndex < playlist.length - 1) playChannel(currentIndex + 1); };
+            const start = (currentPage - 1) * itemsPerPage;
+            const end = start + itemsPerPage;
+            const paginatedItems = filteredStreams.slice(start, end);
 
-progressTrack.onclick = e => {
-  const rect = progressTrack.getBoundingClientRect();
-  const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-  if (video.duration) video.currentTime = pos * video.duration;
-  e.stopPropagation();
-};
+            renderStreams(paginatedItems);
+        }
 
-document.getElementById('playPauseBtn').onclick = (e) => {
-  video.paused ? video.play() : video.pause();
-  e.stopPropagation();
-};
-document.getElementById('prevBtn').onclick = (e) => { playChannel(currentIndex - 1); e.stopPropagation(); };
-document.getElementById('nextBtn').onclick = (e) => { playChannel(currentIndex + 1); e.stopPropagation(); };
-document.getElementById('fsBtn').onclick = (e) => {
-  if (!document.fullscreenElement) screenPanel.requestFullscreen();
-  else document.exitFullscreen();
-  e.stopPropagation();
-};
-document.getElementById('ccBtn').onclick = (e) => {
-  subsEnabled = !subsEnabled;
-  document.getElementById('ccBtn').style.color = subsEnabled ? '#e50914' : '#fff';
-  renderSubtitles();
-  e.stopPropagation();
-};
+        function changePage(direction) {
+            currentPage += direction;
+            renderPaginationView();
+            document.getElementById('channelsList').scrollTop = 0;
+        }
 
-document.getElementById('togglePanelBtn').onclick = (e) => { channelsPanel.classList.toggle('hidden'); e.stopPropagation(); };
-document.getElementById('openPanelBtn').onclick = (e) => { channelsPanel.classList.toggle('hidden'); e.stopPropagation(); };
-searchBox.onclick = (e) => e.stopPropagation();
-searchBox.oninput = e => renderChannels(e.target.value);
+        function renderStreams(items) {
+            const listContainer = document.getElementById('channelsList');
+            listContainer.innerHTML = '';
 
-loadData();
-</script>
+            if (!Array.isArray(items) || items.length === 0) {
+                listContainer.innerHTML = '<div class="text-center text-gray-500 py-10 text-xs">لا توجد قنوات متاحة</div>';
+                return;
+            }
+
+            items.forEach(item => {
+                const title = item.name || 'قناة غير معروفة';
+                const icon = item.stream_icon || '';
+                const id = item.stream_id || item.series_id || '0';
+                const ext = item.container_extension || 'mp4';
+
+                const div = document.createElement('div');
+                div.className = "flex items-center gap-3 p-2.5 hover:bg-amber-500/10 rounded-2xl cursor-pointer transition border border-transparent hover:border-amber-500/30 tv-focusable";
+                div.tabIndex = 0;
+                div.onclick = () => playStream(title, id, ext);
+
+                div.innerHTML = `
+                    <img src="${icon}" onerror="this.src='https://via.placeholder.com/120/1e1b4b/ffffff?text=TV'" class="w-10 h-10 rounded-xl object-cover bg-gray-900">
+                    <div class="flex-1 truncate">
+                        <h4 class="text-xs font-bold truncate">${title}</h4>
+                        <span class="text-[10px] text-amber-400">قناة رقمية</span>
+                    </div>
+                    <i class="fa-solid fa-play text-amber-400 text-xs"></i>
+                `;
+                listContainer.appendChild(div);
+            });
+        }
+
+        function filterChannels() {
+            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+            filteredStreams = allStreams.filter(s => (s.name || '').toLowerCase().includes(query));
+            currentPage = 1; 
+            renderPaginationView();
+        }
+
+        function playStream(title, streamId, extension) {
+            document.getElementById('currentStreamTitle').innerText = title;
+            document.getElementById('currentStreamCategory').innerText = `جاري العرض المباشر من الستلايت`;
+
+            let streamURL = '';
+            if (currentCategory === 'live') {
+                streamURL = `${currentAccount.host}/live/${currentAccount.username}/${currentAccount.password}/${streamId}.m3u8`;
+            } else if (currentCategory === 'vod') {
+                streamURL = `${currentAccount.host}/movie/${currentAccount.username}/${currentAccount.password}/${streamId}.${extension}`;
+            } else {
+                streamURL = `${currentAccount.host}/series/${currentAccount.username}/${currentAccount.password}/${streamId}.mp4`;
+            }
+
+            player.src({
+                src: streamURL,
+                type: currentCategory === 'live' ? 'application/x-mpegURL' : 'video/mp4'
+            });
+            player.play();
+        }
+
+        function toggleFullscreen() { player.isFullscreen() ? player.exitFullscreen() : player.requestFullscreen(); }
+
+        function logout() {
+            localStorage.clear();
+            location.reload();
+        }
+    </script>
 </body>
 </html>
